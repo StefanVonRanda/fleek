@@ -71,3 +71,28 @@ func styleFor(entry Entry) kindStyle {
 func tileColor(style kindStyle) RGB {
 	return blend(hexRGB("#1e1e2a"), style.color, 0.13)
 }
+
+func placeIcon(name string) string {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "home":
+		return iconHome
+	case "download":
+		return iconDownload
+	case "document", "documents":
+		return iconDocument
+	case "music":
+		return iconMusic
+	case "picture", "pictures":
+		return iconPicture
+	case "video", "videos":
+		return iconVideo
+	case "code", "projects":
+		return iconCode
+	case "trash":
+		return iconTrash
+	case "disk":
+		return iconDisk
+	default:
+		return iconFolder
+	}
+}

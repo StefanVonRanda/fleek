@@ -31,17 +31,29 @@ tmux. Terminals without Kitty graphics fall back to colored half blocks.
 
 ## Install
 
-```sh
-go install github.com/StefanVonRanda/fleek@latest
-```
-
-Or build from a checkout:
+From a checkout:
 
 ```sh
 git clone https://github.com/StefanVonRanda/fleek.git
 cd fleek
-go build -o fleek .
-./fleek ~/Pictures
+./install.sh
+```
+
+`install.sh` builds `fleek`, installs it to `~/.local/bin` (or `$PREFIX/bin`),
+and writes a starter config to `~/.config/fleek/config.toml` if you do not have
+one yet.
+
+Alternatively use Go directly:
+
+```sh
+go install github.com/StefanVonRanda/fleek@latest
+```
+
+Run `fleek` with no arguments to open the current directory:
+
+```sh
+cd ~/Pictures
+fleek
 ```
 
 Pass a directory to open it, or a file to open its parent with that file selected.
@@ -69,8 +81,8 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `?` | help |
 | `q` / `ctrl+c` | quit (`ctrl+c` works from any view) |
 
-Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places, breadcrumbs and
-toolbar icons are clickable.
+Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
+breadcrumbs and toolbar icons are clickable.
 
 Search results show paths relative to the current directory. `esc` closes search
 and restores the folder; `enter` opens the selected result.
@@ -101,11 +113,71 @@ FLEEK_PROTOCOL=tgp ./fleek ~/Pictures
 
 ## Configuration
 
+fleek reads `~/.config/fleek/config.toml` (`$XDG_CONFIG_HOME/fleek/config.toml`)
+by default. Use `--config PATH` or `FLEEK_CONFIG` to load another file. Settings
+are applied at startup; `examples/config.toml` is a complete annotated example.
+
+### Theme
+
+The theme block accepts hex colours:
+
+```toml
+[theme]
+background = "#1d1c27"
+sidebar = "#15141e"
+topbar = "#181721"
+status = "#13141c"
+panel = "#1b1a24"
+accent = "#7aa2f7"
+selected = "#232a3f"
+text = "#c0caf5"
+muted = "#9a97aa"
+faint = "#565f89"
+dimmer = "#3b394d"
+hover = "#3a3950"
+sidebar_active = "#262536"
+sidebar_text = "#a9afd5"
+search_background = "#23222f"
+```
+
+### Behaviour and layout
+
+```toml
+[behavior]
+show_hidden = false
+sort = "name"              # name, size, modified
+directories_first = true
+
+[layout]
+sidebar_width = 20         # 14-32
+card_width = 25            # 25-40
+gap = 2                    # 1-4
+
+[images]
+protocol = "auto"          # auto, tgp, halfblock
+```
+
+### Extra places
+
+```toml
+[[places]]
+label = "Code"
+path = "~/code"
+icon = "code"
+color = "#7aa2f7"
+```
+
+Available icon names are `home`, `download`, `document`, `music`, `picture`,
+`video`, `code`, `trash`, `disk` and `folder`.
+
+### Environment overrides
+
 | Variable | Purpose |
 | --- | --- |
 | `FLEEK_PROTOCOL` | `tgp` or `halfblock` |
 | `FLEEK_CACHE_DIR` | thumbnail cache root (default: `~/.cache/fleek`) |
 | `FLEEK_FONT` | path to a Nerd Font used to render large folder glyphs |
+| `FLEEK_CONFIG` | alternative config file path |
 
 Thumbnails and preview images are cached under `~/.cache/fleek/thumbs`. The cache
 is safe to delete.

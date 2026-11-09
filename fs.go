@@ -27,6 +27,11 @@ type Entry struct {
 
 var extKinds = map[string]string{}
 
+var (
+	sortMode  = "name"
+	dirsFirst = true
+)
+
 func init() {
 	add := func(kind string, values string) {
 		for _, ext := range strings.Fields(values) {
@@ -109,13 +114,28 @@ func scanDir(path string, hidden bool) ([]Entry, error) {
 			Kind:    classify(name, isDir, resolved.Mode()&0o111 != 0 && !isDir),
 		})
 	}
-	sort.SliceStable(entries, func(i, j int) bool {
-		if entries[i].IsDir != entries[j].IsDir {
-			return entries[i].IsDir
-		}
-		return naturalLess(entries[i].Name, entries[j].Name)
-	})
+	sortEntries(entries)
 	return entries, nil
+}
+
+func sortEntries(entries []Entry) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		left, right := entries[i], entries[j]
+		if dirsFirst && left.IsDir != right.IsDir {
+			return left.IsDir
+		}
+		switch sortMode {
+		case "size":
+			if left.Size != right.Size {
+				return left.Size > right.Size
+			}
+		case "modified":
+			if !left.ModTime.Equal(right.ModTime) {
+				return left.ModTime.After(right.ModTime)
+			}
+		}
+		return naturalLess(left.Name, right.Name)
+	})
 }
 
 var naturalChunks = regexp.MustCompile(`\d+|[^\d]+`)
@@ -229,11 +249,41 @@ func buildPlaces() []Place {
 		{"Projects", filepath.Join(home, "work"), iconCode, colGreen, false},
 		{"Trash", filepath.Join(home, ".local/share/Trash/files"), iconTrash, colRed, false},
 	}
-	places := make([]Place, 0, len(candidates))
+	places := make([]Place, 0, len(candidates)+len(appConfig.Places))
+	seen := map[string]bool{}
+	add := func(place Place) {
+		real, err := filepath.EvalSymlinks(place.Path)
+		if err != nil {
+			real = place.Path
+		}
+		if seen[real] {
+			return
+		}
+		seen[real] = true
+		places = append(places, place)
+	}
 	for _, place := range candidates {
 		if info, err := os.Stat(place.Path); err == nil && info.IsDir() {
-			places = append(places, place)
+			add(place)
 		}
+	}
+	for _, custom := range appConfig.Places {
+		path := expandPath(custom.Path)
+		if path == "" {
+			continue
+		}
+		if info, err := os.Stat(path); err != nil || !info.IsDir() {
+			continue
+		}
+		label := strings.TrimSpace(custom.Label)
+		if label == "" {
+			label = filepath.Base(path)
+		}
+		color := colAccent
+		if parsed, ok := parseHex(custom.Color); ok {
+			color = parsed
+		}
+		add(Place{label, path, placeIcon(custom.Icon), color, false})
 	}
 	return places
 }

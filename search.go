@@ -3,7 +3,6 @@ package main
 import (
 	"io/fs"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -153,12 +152,7 @@ func walkSearch(root, query string, hidden bool, limit int) ([]Entry, bool, erro
 		}
 		return nil
 	})
-	sort.SliceStable(results, func(i, j int) bool {
-		if results[i].IsDir != results[j].IsDir {
-			return results[i].IsDir
-		}
-		return naturalLess(results[i].Path, results[j].Path)
-	})
+	sortEntries(results)
 	return results, truncated, err
 }
 

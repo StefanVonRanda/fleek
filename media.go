@@ -21,6 +21,12 @@ func detectProtocol() Protocol {
 	case "half", "halfblock", "halfblocks", "unicode":
 		return protoHalf
 	}
+	switch strings.ToLower(appConfig.Images.Protocol) {
+	case "tgp", "kitty":
+		return protoTGP
+	case "half", "halfblock", "halfblocks":
+		return protoHalf
+	}
 	if !stdoutIsTerminal() {
 		return protoHalf
 	}

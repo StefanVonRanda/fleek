@@ -9,14 +9,17 @@ import (
 )
 
 const (
-	topH     = 2
+	topH    = 2
+	statusH = 1
+	padX    = 2
+	cardH   = 11
+	imgW    = 23
+	imgH    = 7
+)
+
+var (
 	sidebarW = 20
-	statusH  = 1
-	padX     = 2
 	minCardW = 25
-	cardH    = 11
-	imgW     = 23
-	imgH     = 7
 	gapX     = 2
 	gapY     = 2
 )

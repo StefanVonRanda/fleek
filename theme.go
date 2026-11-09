@@ -1,17 +1,35 @@
 package main
 
-import "fmt"
+import (
+	"strconv"
+	"strings"
+)
 
 type RGB struct {
 	R, G, B uint8
 }
 
+func parseHex(value string) (RGB, bool) {
+	value = strings.TrimSpace(value)
+	if len(value) == 4 && value[0] == '#' {
+		value = strings.Join([]string{"#", string(value[1]), string(value[1]), string(value[2]), string(value[2]), string(value[3]), string(value[3])}, "")
+	}
+	if len(value) != 7 || value[0] != '#' {
+		return RGB{255, 255, 255}, false
+	}
+	number, err := strconv.ParseUint(value[1:], 16, 24)
+	if err != nil {
+		return RGB{255, 255, 255}, false
+	}
+	return RGB{uint8(number >> 16), uint8(number >> 8), uint8(number)}, true
+}
+
 func hexRGB(value string) RGB {
-	var r, g, b uint8
-	if _, err := fmt.Sscanf(value, "#%02x%02x%02x", &r, &g, &b); err != nil {
+	color, ok := parseHex(value)
+	if !ok {
 		return RGB{255, 255, 255}
 	}
-	return RGB{r, g, b}
+	return color
 }
 
 var (

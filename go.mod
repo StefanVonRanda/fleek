@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	charm.land/bubbletea/v2 v2.1.1
+	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/disintegration/imaging v1.6.2
 	github.com/mattn/go-runewidth v0.0.30

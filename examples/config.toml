@@ -1,0 +1,47 @@
+# fleek configuration
+#
+# Copy this file to ~/.config/fleek/config.toml, or point fleek at it:
+#   fleek --config path/to/config.toml
+#
+# Environment variables override the matching settings:
+#   FLEEK_PROTOCOL, FLEEK_CACHE_DIR, FLEEK_FONT, FLEEK_CONFIG
+
+[theme]
+background = "#1d1c27"
+sidebar = "#15141e"
+topbar = "#181721"
+status = "#13141c"
+panel = "#1b1a24"
+accent = "#7aa2f7"
+selected = "#232a3f"
+text = "#c0caf5"
+muted = "#9a97aa"
+faint = "#565f89"
+dimmer = "#3b394d"
+hover = "#3a3950"
+sidebar_active = "#262536"
+sidebar_text = "#a9afd5"
+search_background = "#23222f"
+
+[behavior]
+show_hidden = false
+# name, size, or modified
+sort = "name"
+directories_first = true
+
+[layout]
+# sidebar_width: 14-32, card_width: 25-40, gap: 1-4
+sidebar_width = 20
+card_width = 25
+gap = 2
+
+[images]
+# auto, tgp, or halfblock
+protocol = "auto"
+
+# Add extra sidebar places. Paths support ~ and environment variables.
+# [[places]]
+# label = "Code"
+# path = "~/code"
+# icon = "code"      # home, download, document, music, picture, video, code, trash, disk, folder
+# color = "#7aa2f7"

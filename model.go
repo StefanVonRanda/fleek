@@ -158,6 +158,7 @@ type model struct {
 func newModel(initial string) *model {
 	return &model{
 		initial:        initial,
+		hidden:         appConfig.Behavior.ShowHidden,
 		thumbs:         map[string]*Thumb{},
 		pending:        map[string]bool{},
 		tried:          map[string]bool{},
