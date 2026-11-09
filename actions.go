@@ -323,7 +323,7 @@ func (m *model) handleMenuClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	if m.menu == nil {
 		return m, nil
 	}
-	width := menuWidth
+	width := m.menuWidth()
 	height := len(m.menu.items) + 2
 	x := m.menu.x
 	if x+width > m.width-1 {
@@ -348,7 +348,16 @@ func (m *model) handleMenuClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-var menuWidth = 32
+func (m *model) menuWidth() int {
+	width := 32
+	if width > m.width-2 {
+		width = m.width - 2
+	}
+	if width < 12 {
+		width = 12
+	}
+	return width
+}
 
 func (m *model) runMenuAction(action string) tea.Cmd {
 	menu := m.menu
@@ -523,7 +532,7 @@ func (m *model) drawMenu(canvas *Canvas) {
 	if m.menu == nil {
 		return
 	}
-	width := menuWidth
+	width := m.menuWidth()
 	height := len(m.menu.items) + 2
 	x := m.menu.x
 	if x+width > m.width-1 {

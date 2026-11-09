@@ -18,11 +18,28 @@ const (
 )
 
 var (
-	sidebarW = 20
-	minCardW = 25
-	gapX     = 2
-	gapY     = 2
+	sidebarW          = 20
+	preferredSidebarW = 20
+	minCardW          = 25
+	gapX              = 2
+	gapY              = 2
 )
+
+func responsiveSidebarWidth(width, preferred int) int {
+	if width < 36 {
+		return 0
+	}
+	if width < 90 {
+		return 3
+	}
+	if preferred < 14 {
+		return 14
+	}
+	if preferred > 32 {
+		return 32
+	}
+	return preferred
+}
 
 type crumb struct {
 	label string
@@ -68,14 +85,21 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	if m.historyIndex < len(m.history)-1 {
 		forward = colMuted
 	}
-	canvas.text(2, 0, 1, iconBack, back, colTop)
-	canvas.text(4, 0, 1, iconForward, forward, colTop)
-	m.topHits = append(m.topHits,
-		topHit{2, 2, "back"},
-		topHit{4, 4, "forward"},
-	)
+	compactSearch := m.search && m.width < 50
+	if !compactSearch {
+		canvas.text(2, 0, 1, iconBack, back, colTop)
+		canvas.text(4, 0, 1, iconForward, forward, colTop)
+		m.topHits = append(m.topHits,
+			topHit{2, 2, "back"},
+			topHit{4, 4, "forward"},
+		)
+	}
 
-	if m.search {
+	if compactSearch {
+		canvas.fillRect(2, 0, m.width-3, 1, colSearchBG)
+		canvas.text(2, 0, 1, iconSearch, colMuted, colSearchBG)
+		canvas.text(4, 0, m.width-6, m.filter, colText, colSearchBG)
+	} else if m.search {
 		canvas.fillRect(7, 0, m.width-22, 1, colSearchBG)
 		canvas.text(7, 0, 1, iconSearch, colMuted, colSearchBG)
 		canvas.text(9, 0, 8, "Search: ", colFaint, colSearchBG)
@@ -131,12 +155,14 @@ func (m *model) drawTopbar(canvas *Canvas) {
 		{m.width - 7, iconRefresh, colMuted, "refresh"},
 		{m.width - 4, iconHelp, colMuted, "help"},
 	}
-	for _, item := range iconPositions {
-		if item.x < 8 {
-			continue
+	if !compactSearch {
+		for _, item := range iconPositions {
+			if item.x < 8 {
+				continue
+			}
+			canvas.text(item.x, 0, 1, item.icon, item.color, colTop)
+			m.topHits = append(m.topHits, topHit{item.x, item.x, item.action})
 		}
-		canvas.text(item.x, 0, 1, item.icon, item.color, colTop)
-		m.topHits = append(m.topHits, topHit{item.x, item.x, item.action})
 	}
 }
 
@@ -177,8 +203,33 @@ func (m *model) drawSidebar(canvas *Canvas) {
 	if body <= 0 {
 		return
 	}
+	if sidebarW <= 0 {
+		return
+	}
 	canvas.fillRect(0, topH, sidebarW, body, colSidebar)
 	active, hasActive := m.activePlaceIndex()
+
+	if sidebarW <= 3 {
+		all := append(append([]Place{}, m.places...), m.devices...)
+		y := topH + 1
+		for index, place := range all {
+			if y >= topH+body-1 {
+				break
+			}
+			background := colSidebar
+			if hasActive && index == active {
+				background = colSidebarActive
+			}
+			if m.focus == focusSidebar && index == m.sideCursor {
+				background = colSidebarActive
+			}
+			canvas.fillRect(0, y, sidebarW, 1, background)
+			canvas.text(1, y, 1, place.Icon, place.Color, background)
+			m.sideHits = append(m.sideHits, sideHit{y, place.Path})
+			y++
+		}
+		return
+	}
 
 	y := topH + 1
 	drawSection := func(label string) {
@@ -404,23 +455,8 @@ func (m *model) drawStatus(canvas *Canvas) {
 	}
 }
 
-func (m *model) drawHelp(canvas *Canvas) {
-	panelWidth := 64
-	if panelWidth > m.width-4 {
-		panelWidth = m.width - 4
-	}
-	panelHeight := 27
-	if panelHeight > m.height-2 {
-		panelHeight = m.height - 2
-	}
-	x := (m.width - panelWidth) / 2
-	y := (m.height - panelHeight) / 2
-	canvas.dimOutside(x, y, panelWidth, panelHeight)
-	canvas.fillRect(x, y, panelWidth, panelHeight, colPanel)
-	canvas.box(x, y, panelWidth, panelHeight, colAccent, colPanel)
-
-	canvas.text(x+2, y+1, panelWidth-4, "fleek  keys", colText, colPanel)
-	keys := [][2]string{
+func (m *model) helpRows() [][2]string {
+	rows := [][2]string{
 		{"← ↑ ↓ →  hjkl", "move around the grid"},
 		{"enter", "open folder or file"},
 		{"double click", "open"},
@@ -440,22 +476,73 @@ func (m *model) drawHelp(canvas *Canvas) {
 		{"?", "this help"},
 		{"q / ctrl+c", "quit"},
 	}
-	row := y + 3
-	for _, item := range keys {
-		if row >= y+panelHeight-4 {
-			break
+	rows = append(rows, [2]string{"", ""})
+	rows = append(rows, [2]string{"images", protocolName(m.protocol)})
+	return rows
+}
+
+func (m *model) drawHelp(canvas *Canvas) {
+	panelWidth := 64
+	if panelWidth > m.width-2 {
+		panelWidth = m.width - 2
+	}
+	if panelWidth < 16 {
+		panelWidth = 16
+	}
+	panelHeight := 27
+	if panelHeight > m.height-2 {
+		panelHeight = m.height - 2
+	}
+	if panelHeight < 8 {
+		panelHeight = 8
+	}
+	x := (m.width - panelWidth) / 2
+	y := (m.height - panelHeight) / 2
+	canvas.dimOutside(x, y, panelWidth, panelHeight)
+	canvas.fillRect(x, y, panelWidth, panelHeight, colPanel)
+	canvas.box(x, y, panelWidth, panelHeight, colAccent, colPanel)
+	canvas.text(x+2, y+1, panelWidth-4, "fleek  keys", colText, colPanel)
+
+	keyWidth := 18
+	if panelWidth < 62 {
+		keyWidth = 14
+	}
+	actionX := x + 2 + keyWidth
+	actionWidth := panelWidth - keyWidth - 4
+	if actionWidth < 4 {
+		actionWidth = 4
+	}
+	contentStart := y + 3
+	footerY := y + panelHeight - 2
+	available := footerY - contentStart
+	if available < 1 {
+		available = 1
+	}
+	rows := m.helpRows()
+	maxOffset := len(rows) - available
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.helpOffset > maxOffset {
+		m.helpOffset = maxOffset
+	}
+	if m.helpOffset < 0 {
+		m.helpOffset = 0
+	}
+	for index := 0; index < available && m.helpOffset+index < len(rows); index++ {
+		row := rows[m.helpOffset+index]
+		if row[0] == "" {
+			continue
 		}
-		canvas.text(x+2, row, 18, item[0], colAccent, colPanel)
-		canvas.text(x+22, row, panelWidth-24, item[1], colSidebarText, colPanel)
-		row++
+		rowY := contentStart + index
+		canvas.text(x+2, rowY, keyWidth, truncateText(row[0], keyWidth), colAccent, colPanel)
+		canvas.text(actionX, rowY, actionWidth, truncateText(row[1], actionWidth), colSidebarText, colPanel)
 	}
-	if row+2 < y+panelHeight {
-		canvas.text(x+2, row+1, panelWidth-4, "images  "+protocolName(m.protocol), colFaint, colPanel)
+	hint := "esc close"
+	if maxOffset > 0 {
+		hint = "↑↓ scroll   ·   esc close"
 	}
-	if row+2 < y+panelHeight {
-		canvas.text(x+2, row+3, 8, "esc", colAccent, colPanel)
-		canvas.text(x+22, row+3, panelWidth-24, "close", colFaint, colPanel)
-	}
+	canvas.centerText(x+2, footerY, panelWidth-4, hint, colFaint, colPanel)
 }
 
 func drawFolderGlyph(canvas *Canvas, x, y int, fill RGB) {

@@ -20,6 +20,7 @@ tmux. Terminals without Kitty graphics fall back to colored half blocks.
 - Full-screen image viewer on double-click or `space`, with arrow-key browsing
 - Lazy thumbnail loading and a disk cache
 - Kitty graphics for Ghostty/Kitty/WezTerm, with a colored half-block fallback
+- Responsive layout for narrow terminals and phone-sized windows
 
 ## Requirements
 
@@ -87,6 +88,13 @@ breadcrumbs and toolbar icons are clickable.
 Search results show paths relative to the current directory. `esc` closes search
 and restores the folder; `enter` opens the selected result.
 
+### Small terminals
+
+Below 90 columns the sidebar collapses to an icon rail; below 36 columns it is
+hidden and the grid uses the full width. The help panel scrolls with `j`/`k`,
+arrow keys or the wheel. Search expands to the full path bar under 50 columns,
+and the context menu and dialogs size themselves to the window.
+
 ## Images and tmux
 
 fleek chooses the image renderer at startup:
@@ -149,7 +157,7 @@ sort = "name"              # name, size, modified
 directories_first = true
 
 [layout]
-sidebar_width = 20         # 14-32
+sidebar_width = 20         # 14-32 (preferred; hidden below 36 columns)
 card_width = 25            # 25-40
 gap = 2                    # 1-4
 

@@ -138,6 +138,7 @@ func applyConfig(config Config) {
 
 	if config.Layout.SidebarWidth >= 14 && config.Layout.SidebarWidth <= 32 {
 		sidebarW = config.Layout.SidebarWidth
+		preferredSidebarW = config.Layout.SidebarWidth
 	}
 	if config.Layout.CardWidth >= 25 && config.Layout.CardWidth <= 40 {
 		minCardW = config.Layout.CardWidth

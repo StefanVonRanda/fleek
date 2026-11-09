@@ -115,6 +115,7 @@ type model struct {
 
 	sideCursor int
 	help       bool
+	helpOffset int
 
 	history      []string
 	historyIndex int
@@ -201,6 +202,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		sidebarW = responsiveSidebarWidth(m.width, preferredSidebarW)
+		if sidebarW == 0 && m.focus == focusSidebar {
+			m.focus = focusGrid
+		}
 		m.ensureVisible()
 		if m.started {
 			return m, m.thumbCmds()
@@ -259,7 +264,7 @@ func (m *model) View() tea.View {
 		if m.dialog != nil && m.dialog.kind == "prompt" && m.cursorPosX > 0 {
 			view.Cursor = tea.NewCursor(m.cursorPosX, m.cursorPosY)
 		} else if m.search {
-			view.Cursor = tea.NewCursor(m.cursorX(), 0)
+			view.Cursor = tea.NewCursor(m.searchCursorX(), 0)
 		}
 	}
 	return view
@@ -277,6 +282,19 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "esc", "q", "?":
 			m.help = false
+		case "up", "k":
+			if m.helpOffset > 0 {
+				m.helpOffset--
+			}
+		case "down", "j":
+			m.helpOffset++
+		case "pgup":
+			m.helpOffset -= 10
+			if m.helpOffset < 0 {
+				m.helpOffset = 0
+			}
+		case "pgdown":
+			m.helpOffset += 10
 		}
 		return m, nil
 	}
@@ -318,6 +336,7 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.beginSearch()
 	case "?":
 		m.help = true
+		m.helpOffset = 0
 		return m, nil
 	}
 
@@ -509,6 +528,7 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 					return m, m.reload()
 				case "help":
 					m.help = true
+					m.helpOffset = 0
 					return m, nil
 				}
 			}
@@ -554,6 +574,17 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleWheel(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.help {
+		switch mouse.Button {
+		case tea.MouseWheelUp:
+			if m.helpOffset > 0 {
+				m.helpOffset -= 2
+			}
+		case tea.MouseWheelDown:
+			m.helpOffset += 2
+		}
+		return m, nil
+	}
 	delta := 0
 	switch mouse.Button {
 	case tea.MouseWheelUp:
@@ -570,6 +601,10 @@ func (m *model) handleWheel(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) toggleFocus() {
+	if sidebarW == 0 {
+		m.focus = focusGrid
+		return
+	}
 	if m.focus == focusGrid {
 		m.focus = focusSidebar
 		if index, ok := m.activePlaceIndex(); ok {
@@ -841,7 +876,17 @@ func (m *model) visibleRange() (int, int) {
 	return start, end
 }
 
-func (m *model) cursorX() int {
+func (m *model) searchCursorX() int {
+	if m.width < 50 {
+		x := 4 + runewidth.StringWidth(m.filter)
+		if x > m.width-2 {
+			x = m.width - 2
+		}
+		if x < 4 {
+			return 4
+		}
+		return x
+	}
 	x := 17 + runewidth.StringWidth(m.filter)
 	if x > m.width-16 {
 		x = m.width - 16
