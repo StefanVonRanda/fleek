@@ -10,8 +10,8 @@ A grid-first terminal file manager with real thumbnails, built for Ghostty and t
 ![fleek showing a grid of image thumbnails](docs/images/grid-preview.png)
 
 *Ghostty preview (composited). The terminal frame, text and layout are a real
-200×50 capture; only the thumbnail cells are filled with the same 480×320 images
-fleek uploads through the Kitty graphics protocol.
+200×50 capture from foot; only the thumbnail cells are filled with the same
+480×320 images fleek uploads through the Kitty graphics protocol.
 [See the unmodified half-block capture](docs/images/grid-halfblock.png).
 Demo artwork is original.*
 
@@ -34,7 +34,7 @@ Demo artwork is original.*
 | Full-screen viewer | File actions |
 |:---:|:---:|
 | <img src="docs/images/viewer-preview.png" width="100%" alt="Full-screen image viewer"> | <img src="docs/images/menu.png" width="100%" alt="File actions menu"> |
-| **Full-screen viewer** — `space` opens the selected image; arrows browse. *Ghostty preview (composited): image area filled at full resolution. [Unmodified capture](docs/images/viewer-halfblock.png).* | **File actions** — right-click or `m` to open, copy, cut, rename or trash. *Unmodified half-block capture.* |
+| **Full-screen viewer** — `space` opens the selected image; arrows browse. *Ghostty preview (composited): UI from a real foot capture; image area filled at full resolution. [Unmodified capture](docs/images/viewer-halfblock.png).* | **File actions** — right-click or `m` to open, copy, cut, rename or trash. *Unmodified half-block capture.* |
 | <img src="docs/images/help.png" width="100%" alt="Keyboard help panel"> | <p align="center"><img src="docs/images/phone.png" width="58%" alt="fleek in a phone-sized terminal"></p> |
 | **Keyboard help** — every binding, scrollable in short windows. *Unmodified half-block capture.* | **Phone-sized terminal** — 40×23, icon rail and one-column grid. *Unmodified half-block capture.* |
 
