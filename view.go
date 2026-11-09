@@ -464,7 +464,7 @@ func (m *model) helpRows() [][2]string {
 		{"alt+← / alt+→", "back / forward"},
 		{"~", "home"},
 		{".", "show or hide dotfiles"},
-		{"/", "search this folder tree"},
+		{"/ or ctrl+f", "search this folder tree"},
 		{"c / x / v", "copy / cut / paste"},
 		{"F2", "rename"},
 		{"n", "new folder"},

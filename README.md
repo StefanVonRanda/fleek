@@ -22,8 +22,9 @@ Demo artwork is original.*
 - **Built for the terminal you already use.** Kitty graphics with Unicode
   placeholders in Ghostty, Kitty and WezTerm, including inside tmux. Everything
   else gets a colored half-block fallback.
-- **Fast to drive.** Arrows or `hjkl` for the grid, `/` for recursive search,
-  and a right-click menu for copy, cut, rename, trash and new folders.
+- **Fast to drive.** Arrows or `hjkl` for the grid, `/` or `ctrl+f` for
+  recursive search, and a right-click menu for copy, cut, rename, trash and new
+  folders.
 - **Fits the window you have.** Full sidebar on wide terminals, an icon rail in
   the middle, a single-column grid on a phone-sized 40×23 window.
 - **One binary, your config.** A single Go binary with TOML themes, layout,
@@ -109,7 +110,7 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `alt+←` / `alt+→` | back / forward |
 | `~` | home |
 | `.` | show or hide dotfiles |
-| `/` | recursive search |
+| `/` or `ctrl+f` | recursive search |
 | `tab` | jump between the grid and sidebar |
 | `r` | refresh |
 | `?` | help |

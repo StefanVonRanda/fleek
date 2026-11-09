@@ -332,7 +332,7 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.reload()
 	case "r":
 		return m, m.reload()
-	case "/":
+	case "/", "ctrl+f":
 		return m, m.beginSearch()
 	case "?":
 		m.help = true
