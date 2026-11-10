@@ -512,8 +512,18 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 		offsetY = (imgH - imageHeight) / 2
 	}
 	if thumb != nil {
-		switch m.protocol {
-		case protoTGP:
+		switch {
+		case m.mobile():
+			if len(thumb.Half) >= halfWidth*imgH {
+				for row := 0; row < imageHeight; row++ {
+					for column := 0; column < imageWidth; column++ {
+						cell := thumb.Half[(row+offsetY)*halfWidth+(column+offsetX)]
+						canvas.putImage(imageX+column, y+1+row, "▀", cell.Top, cell.Bottom)
+					}
+				}
+				drawImage = true
+			}
+		case m.protocol == protoTGP:
 			if thumb.Uploaded {
 				for row := 0; row < imageHeight; row++ {
 					for column := 0; column < imageWidth; column++ {
