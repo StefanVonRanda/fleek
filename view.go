@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	topH    = 2
+	topBarY = 1
+	topH    = topBarY + 2
 	statusH = 1
 	padX    = 2
 	cardH   = 11
@@ -60,13 +61,14 @@ func (m *model) renderCanvas() *Canvas {
 	m.drawSidebar(canvas)
 	m.drawGallery(canvas)
 	m.drawStatus(canvas)
+	if m.settings != nil {
+		m.drawSettings(canvas)
+	}
 	if m.help {
 		m.drawHelp(canvas)
-		return canvas
 	}
 	if m.dialog != nil {
 		m.drawDialog(canvas)
-		return canvas
 	}
 	if m.menu != nil {
 		m.drawMenu(canvas)
@@ -75,7 +77,8 @@ func (m *model) renderCanvas() *Canvas {
 }
 
 func (m *model) drawTopbar(canvas *Canvas) {
-	canvas.fillRect(0, 0, m.width, topH, colTop)
+	y := topBarY
+	canvas.fillRect(0, y, m.width, topH-y, colTop)
 
 	back := colDimmer
 	if m.historyIndex > 0 {
@@ -87,8 +90,8 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	}
 	compactSearch := m.search && m.width < 50
 	if !compactSearch {
-		canvas.text(2, 0, 1, iconBack, back, colTop)
-		canvas.text(4, 0, 1, iconForward, forward, colTop)
+		canvas.text(2, y, 1, iconBack, back, colTop)
+		canvas.text(4, y, 1, iconForward, forward, colTop)
 		m.topHits = append(m.topHits,
 			topHit{2, 2, "back"},
 			topHit{4, 4, "forward"},
@@ -96,17 +99,17 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	}
 
 	if compactSearch {
-		canvas.fillRect(2, 0, m.width-3, 1, colSearchBG)
-		canvas.text(2, 0, 1, iconSearch, colMuted, colSearchBG)
-		canvas.text(4, 0, m.width-6, m.filter, colText, colSearchBG)
+		canvas.fillRect(2, y, m.width-3, 1, colSearchBG)
+		canvas.text(2, y, 1, iconSearch, colMuted, colSearchBG)
+		canvas.text(4, y, m.width-6, m.filter, colText, colSearchBG)
 	} else if m.search {
-		canvas.fillRect(7, 0, m.width-22, 1, colSearchBG)
-		canvas.text(7, 0, 1, iconSearch, colMuted, colSearchBG)
-		canvas.text(9, 0, 8, "Search: ", colFaint, colSearchBG)
-		canvas.text(17, 0, m.width-33, m.filter, colText, colSearchBG)
+		canvas.fillRect(7, y, m.width-22, 1, colSearchBG)
+		canvas.text(7, y, 1, iconSearch, colMuted, colSearchBG)
+		canvas.text(9, y, 8, "Search: ", colFaint, colSearchBG)
+		canvas.text(17, y, m.width-33, m.filter, colText, colSearchBG)
 	} else {
 		x := 7
-		limit := m.width - 15
+		limit := m.width - 18
 		crumbs := m.crumbs()
 		for index, item := range crumbs {
 			label := truncateText(item.label, limit-x)
@@ -118,14 +121,14 @@ func (m *model) drawTopbar(canvas *Canvas) {
 			if index == len(crumbs)-1 {
 				color = colText
 			}
-			canvas.text(x, 0, width, label, color, colTop)
+			canvas.text(x, y, width, label, color, colTop)
 			m.crumbHits = append(m.crumbHits, crumbHit{x, x + width - 1, item.path})
 			x += width
 			if index < len(crumbs)-1 && !(index == 0 && item.path == "/") {
 				if x >= limit {
 					break
 				}
-				canvas.text(x, 0, 1, "/", colDimmer, colTop)
+				canvas.text(x, y, 1, "/", colDimmer, colTop)
 				x++
 			}
 			if x >= limit {
@@ -150,6 +153,7 @@ func (m *model) drawTopbar(canvas *Canvas) {
 		color  RGB
 		action string
 	}{
+		{m.width - 16, iconSettings, colMuted, "settings"},
 		{m.width - 13, iconSearch, searchColor, "search"},
 		{m.width - 10, hiddenIcon, hiddenColor, "hidden"},
 		{m.width - 7, iconRefresh, colMuted, "refresh"},
@@ -160,7 +164,7 @@ func (m *model) drawTopbar(canvas *Canvas) {
 			if item.x < 8 {
 				continue
 			}
-			canvas.text(item.x, 0, 1, item.icon, item.color, colTop)
+			canvas.text(item.x, y, 1, item.icon, item.color, colTop)
 			m.topHits = append(m.topHits, topHit{item.x, item.x, item.action})
 		}
 	}
@@ -473,6 +477,7 @@ func (m *model) helpRows() [][2]string {
 		{"m / right click", "file actions"},
 		{"tab", "jump to the sidebar"},
 		{"r", "refresh"},
+		{"s / ctrl+,", "settings and theme"},
 		{"?", "this help"},
 		{"q / ctrl+c", "quit"},
 	}

@@ -7,21 +7,21 @@
 #   FLEEK_PROTOCOL, FLEEK_CACHE_DIR, FLEEK_FONT, FLEEK_CONFIG
 
 [theme]
-background = "#1d1c27"
-sidebar = "#15141e"
-topbar = "#181721"
-status = "#13141c"
-panel = "#1b1a24"
-accent = "#7aa2f7"
-selected = "#232a3f"
-text = "#c0caf5"
-muted = "#9a97aa"
-faint = "#565f89"
-dimmer = "#3b394d"
-hover = "#3a3950"
-sidebar_active = "#262536"
-sidebar_text = "#a9afd5"
-search_background = "#23222f"
+background = "#1e1e2e"
+sidebar = "#181825"
+topbar = "#181825"
+status = "#1e1e2e"
+panel = "#1e1e2e"
+accent = "#cba6f7"
+selected = "#313244"
+text = "#cdd6f4"
+muted = "#a6adc8"
+faint = "#6c7086"
+dimmer = "#585b70"
+hover = "#45475a"
+sidebar_active = "#313244"
+sidebar_text = "#a6adc8"
+search_background = "#313244"
 
 [behavior]
 show_hidden = false

@@ -47,6 +47,7 @@ as such. The menu, help and phone screenshots are unmodified.
 - 3:2 thumbnails for images, videos and PDFs
 - Nerd Font folder tiles and file-type icons
 - Places sidebar with mounted filesystems and free space
+- Right-click a folder to add it to the sidebar, or remove it again
 - Responsive grid, selection borders, breadcrumbs and history
 - Recursive search across the current tree (`/`)
 - Copy, cut, paste, rename, trash and new-folder actions
@@ -54,7 +55,9 @@ as such. The menu, help and phone screenshots are unmodified.
 - Full-screen viewer with arrow-key browsing
 - Lazy thumbnail loading and a disk cache
 - Kitty graphics for Ghostty/Kitty/WezTerm, with a half-block fallback
+- Catppuccin Mocha palette by default
 - TOML configuration for theme, layout, behavior and extra places
+- In-app settings window with live theme preview and save-to-TOML
 
 ## Requirements
 
@@ -113,6 +116,7 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `/` or `ctrl+f` | recursive search |
 | `tab` | jump between the grid and sidebar |
 | `r` | refresh |
+| `s` / `ctrl+,` | settings and theme |
 | `?` | help |
 | `q` / `ctrl+c` | quit (`ctrl+c` works from any view) |
 
@@ -132,14 +136,19 @@ with `j`/`k`, arrow keys or the wheel. Search expands to the full path bar under
 ## Configuration
 
 fleek reads `~/.config/fleek/config.toml` (`$XDG_CONFIG_HOME/fleek/config.toml`)
-by default. Use `--config PATH` or `FLEEK_CONFIG` to load another file. Settings
-are applied at startup; `examples/config.toml` is the complete annotated example.
+by default. Use `--config PATH` or `FLEEK_CONFIG` to load another file.
+`examples/config.toml` is the complete annotated example.
+
+Press `s` (or `ctrl+,`) to open the settings window. It edits the theme palette,
+behavior, layout and image protocol with a live preview. `ctrl+s` saves to the
+active config file and `esc` discards the changes. Saving settings or a bookmark
+rewrites the file, so comments in a hand-edited config are not preserved.
 
 ```toml
 [theme]
-background = "#1d1c27"
-accent = "#7aa2f7"
-text = "#c0caf5"
+background = "#1e1e2e"
+accent = "#cba6f7"
+text = "#cdd6f4"
 
 [behavior]
 show_hidden = false
@@ -165,11 +174,14 @@ The full palette, every layout key and custom places live in
 label = "Code"
 path = "~/code"
 icon = "code"
-color = "#7aa2f7"
+color = "#89b4fa"
 ```
 
 Available icon names are `home`, `download`, `document`, `music`, `picture`,
-`video`, `code`, `trash`, `disk` and `folder`.
+`video`, `code`, `trash`, `disk`, `bookmark` and `folder`.
+
+Right-click a folder and choose **Add to sidebar** to append it to this list.
+The same menu removes bookmarks you added.
 
 ### Environment overrides
 

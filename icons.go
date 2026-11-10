@@ -19,8 +19,10 @@ const (
 	iconEyeOff   = "\uf070"
 	iconRefresh  = "\uf021"
 	iconHelp     = "\uf059"
+	iconSettings = "\uf013"
 	iconLink     = "\uf0c1"
 	iconFolder   = "\uf07b"
+	iconBookmark = "\uf02e"
 )
 
 type kindStyle struct {
@@ -88,6 +90,8 @@ func placeIcon(name string) string {
 		return iconVideo
 	case "code", "projects":
 		return iconCode
+	case "bookmark", "bookmarks":
+		return iconBookmark
 	case "trash":
 		return iconTrash
 	case "disk":

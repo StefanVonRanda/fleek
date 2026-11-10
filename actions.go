@@ -259,6 +259,16 @@ func (m *model) menuItemsFor(target *Entry) []menuItem {
 		if previewable(*target) {
 			items = append(items, menuItem{label: "Preview", shortcut: "space", action: "preview", enabled: true})
 		}
+		if target.IsDir {
+			switch {
+			case m.placeConfigIndex(target.Path) >= 0:
+				items = append(items, menuItem{label: "Remove from sidebar", action: "unbookmark", enabled: true})
+			case m.sidebarHasPath(target.Path):
+				items = append(items, menuItem{label: "Already in sidebar", enabled: false})
+			default:
+				items = append(items, menuItem{label: "Add to sidebar", action: "bookmark", enabled: true})
+			}
+		}
 		items = append(items,
 			menuItem{label: "Copy", shortcut: "c", action: "copy", enabled: true},
 			menuItem{label: "Cut", shortcut: "x", action: "cut", enabled: true},
@@ -392,7 +402,85 @@ func (m *model) runMenuAction(action string) tea.Cmd {
 		return m.pasteClipboard()
 	case "refresh":
 		return m.reload()
+	case "bookmark":
+		return m.addBookmark(target)
+	case "unbookmark":
+		return m.removeBookmark(target)
 	}
+	return nil
+}
+
+func bookmarkPath(path string) string {
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		return real
+	}
+	return filepath.Clean(path)
+}
+
+func (m *model) placeConfigIndex(path string) int {
+	target := bookmarkPath(path)
+	for index, place := range appConfig.Places {
+		if bookmarkPath(expandPath(place.Path)) == target {
+			return index
+		}
+	}
+	return -1
+}
+
+func (m *model) sidebarHasPath(path string) bool {
+	target := bookmarkPath(path)
+	for _, place := range m.places {
+		if bookmarkPath(place.Path) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) addBookmark(entry *Entry) tea.Cmd {
+	if entry == nil || !entry.IsDir {
+		return nil
+	}
+	if m.sidebarHasPath(entry.Path) {
+		m.notice = "Already in sidebar"
+		return nil
+	}
+	appConfig.Places = append(appConfig.Places, PlaceConfig{
+		Label: entry.Name,
+		Path:  entry.Path,
+		Icon:  "bookmark",
+	})
+	m.places = buildPlaces()
+	if err := saveConfig(); err != nil {
+		m.notice = "Could not save bookmark: " + err.Error()
+		return nil
+	}
+	m.notice = "Added " + entry.Name + " to sidebar"
+	return nil
+}
+
+func (m *model) removeBookmark(entry *Entry) tea.Cmd {
+	if entry == nil {
+		return nil
+	}
+	index := m.placeConfigIndex(entry.Path)
+	if index < 0 {
+		return nil
+	}
+	label := appConfig.Places[index].Label
+	if strings.TrimSpace(label) == "" {
+		label = filepath.Base(entry.Path)
+	}
+	appConfig.Places = append(appConfig.Places[:index], appConfig.Places[index+1:]...)
+	m.places = buildPlaces()
+	if total := len(m.places) + len(m.devices); m.sideCursor >= total && m.sideCursor > 0 {
+		m.sideCursor = total - 1
+	}
+	if err := saveConfig(); err != nil {
+		m.notice = "Could not save bookmark: " + err.Error()
+		return nil
+	}
+	m.notice = "Removed " + label + " from sidebar"
 	return nil
 }
 
@@ -413,6 +501,16 @@ func (m *model) handleDialogKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if key == "ctrl+s" || key == "ctrl+shift+s" {
+		if m.settings != nil && dialog.action == "setting_color" {
+			cmd := m.applyDialog()
+			if m.dialog == nil {
+				return m.saveSettings()
+			}
+			return cmd
+		}
+	}
+	dialog.message = ""
 	switch key {
 	case "esc":
 		m.dialog = nil
@@ -450,6 +548,10 @@ func (m *model) applyDialog() tea.Cmd {
 	}
 	value := strings.TrimSpace(dialog.value)
 	if value == "" {
+		if dialog.action == "setting_color" {
+			dialog.message = "Enter a hex color"
+			return nil
+		}
 		m.notice = "Name cannot be empty"
 		return nil
 	}
@@ -472,6 +574,13 @@ func (m *model) applyDialog() tea.Cmd {
 		m.dialog = nil
 		m.notice = "Created " + filepath.Base(target)
 		return m.reloadSelect(target)
+	case "setting_color":
+		if !m.applySettingColor(dialog.target, value) {
+			dialog.message = "Use #rgb or #rrggbb"
+			return nil
+		}
+		m.dialog = nil
+		return nil
 	}
 	m.dialog = nil
 	return nil
@@ -551,7 +660,7 @@ func (m *model) drawMenu(canvas *Canvas) {
 	m.menu.x, m.menu.y = x, y
 	m.menu.hits = m.menu.hits[:0]
 	canvas.fillRect(x, y, width, height, colPanel)
-	canvas.box(x, y, width, height, colHover, colPanel)
+	canvas.box(x, y, width, height, colFaint, colPanel)
 	for index, item := range m.menu.items {
 		row := y + 1 + index
 		if item.separator {
@@ -602,8 +711,12 @@ func (m *model) drawDialog(canvas *Canvas) {
 	if m.dialog.replace {
 		shown = value
 	}
+	placeholder := "new name"
+	if m.dialog.action == "setting_color" {
+		placeholder = "#rrggbb"
+	}
 	if shown == "" {
-		canvas.text(x+3, y+3, width-6, "new name", colFaint, colSearchBG)
+		canvas.text(x+3, y+3, width-6, placeholder, colFaint, colSearchBG)
 	} else {
 		canvas.text(x+3, y+3, width-6, shown, colText, colSearchBG)
 	}
@@ -613,7 +726,13 @@ func (m *model) drawDialog(canvas *Canvas) {
 	}
 	m.cursorPosX = cursor
 	m.cursorPosY = y + 3
-	canvas.centerText(x+2, y+5, width-4, "enter apply   ·   esc cancel   ·   ctrl+u clear", colFaint, colPanel)
+	hint := "enter apply   ·   esc cancel   ·   ctrl+u clear"
+	hintColor := colFaint
+	if m.dialog.message != "" {
+		hint = m.dialog.message
+		hintColor = colRed
+	}
+	canvas.centerText(x+2, y+5, width-4, hint, hintColor, colPanel)
 }
 
 func (m *model) drawPreview(canvas *Canvas) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,26 +59,29 @@ type PlaceConfig struct {
 	Color string `toml:"color"`
 }
 
-var appConfig = defaultConfig()
+var (
+	appConfig        = defaultConfig()
+	loadedConfigPath string
+)
 
 func defaultConfig() Config {
 	return Config{
 		Theme: ThemeConfig{
-			Background:       "#1d1c27",
-			Sidebar:          "#15141e",
-			Topbar:           "#181721",
-			Status:           "#13141c",
-			Panel:            "#1b1a24",
-			Accent:           "#7aa2f7",
-			Selected:         "#232a3f",
-			Text:             "#c0caf5",
-			Muted:            "#9a97aa",
-			Faint:            "#565f89",
-			Dimmer:           "#3b394d",
-			Hover:            "#3a3950",
-			SidebarActive:    "#262536",
-			SidebarText:      "#a9afd5",
-			SearchBackground: "#23222f",
+			Background:       "#1e1e2e",
+			Sidebar:          "#181825",
+			Topbar:           "#181825",
+			Status:           "#1e1e2e",
+			Panel:            "#1e1e2e",
+			Accent:           "#cba6f7",
+			Selected:         "#313244",
+			Text:             "#cdd6f4",
+			Muted:            "#a6adc8",
+			Faint:            "#6c7086",
+			Dimmer:           "#585b70",
+			Hover:            "#45475a",
+			SidebarActive:    "#313244",
+			SidebarText:      "#a6adc8",
+			SearchBackground: "#313244",
 		},
 		Behavior: BehaviorConfig{
 			Sort:             "name",
@@ -107,6 +111,7 @@ func loadConfig(explicit string) (Config, string, error) {
 	if path == "" {
 		path = defaultConfigPath()
 	}
+	loadedConfigPath = path
 	config := defaultConfig()
 	info, err := os.Stat(path)
 	if err != nil {
@@ -122,6 +127,22 @@ func loadConfig(explicit string) (Config, string, error) {
 		return defaultConfig(), path, err
 	}
 	return config, path, nil
+}
+
+func saveConfig() error {
+	path := loadedConfigPath
+	if path == "" {
+		path = defaultConfigPath()
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString("# fleek configuration\n\n")
+	if err := toml.NewEncoder(&buffer).Encode(appConfig); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, buffer.Bytes(), 0o644)
 }
 
 func applyConfig(config Config) {

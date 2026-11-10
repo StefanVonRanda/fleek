@@ -147,6 +147,7 @@ type model struct {
 	menu      *contextMenu
 	dialog    *dialogState
 	preview   *previewState
+	settings  *settingsState
 
 	previewSeq int
 	cursorPosX int
@@ -264,7 +265,7 @@ func (m *model) View() tea.View {
 		if m.dialog != nil && m.dialog.kind == "prompt" && m.cursorPosX > 0 {
 			view.Cursor = tea.NewCursor(m.cursorPosX, m.cursorPosY)
 		} else if m.search {
-			view.Cursor = tea.NewCursor(m.searchCursorX(), 0)
+			view.Cursor = tea.NewCursor(m.searchCursorX(), topBarY)
 		}
 	}
 	return view
@@ -304,6 +305,13 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.menu != nil {
 		return m, m.handleMenuKey(msg)
 	}
+	if m.settings != nil {
+		return m, m.handleSettingsKey(msg)
+	}
+	if key == "ctrl+," {
+		m.openSettings()
+		return m, nil
+	}
 	if m.search {
 		return m.handleSearchKey(msg)
 	}
@@ -337,6 +345,9 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.help = true
 		m.helpOffset = 0
+		return m, nil
+	case "s":
+		m.openSettings()
 		return m, nil
 	}
 
@@ -490,6 +501,9 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 			m.help = false
 			return m, nil
 		}
+		if m.settings != nil {
+			return m, m.cancelSettings()
+		}
 		if mouse.Y >= topH && mouse.Y < m.height-statusH && mouse.X >= sidebarW {
 			m.openMenuAt(mouse.X, mouse.Y)
 		}
@@ -511,7 +525,10 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		m.help = false
 		return m, nil
 	}
-	if mouse.Y < topH {
+	if m.settings != nil {
+		return m, nil
+	}
+	if mouse.Y >= topBarY && mouse.Y < topH {
 		for _, hit := range m.topHits {
 			if mouse.X >= hit.x1 && mouse.X <= hit.x2 {
 				switch hit.action {
@@ -529,6 +546,9 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 				case "help":
 					m.help = true
 					m.helpOffset = 0
+					return m, nil
+				case "settings":
+					m.openSettings()
 					return m, nil
 				}
 			}
@@ -574,6 +594,15 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleWheel(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.settings != nil {
+		switch mouse.Button {
+		case tea.MouseWheelUp:
+			m.moveSettingsCursor(-1)
+		case tea.MouseWheelDown:
+			m.moveSettingsCursor(1)
+		}
+		return m, nil
+	}
 	if m.help {
 		switch mouse.Button {
 		case tea.MouseWheelUp:
