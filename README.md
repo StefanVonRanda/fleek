@@ -2,19 +2,15 @@
 
 [![Go 1.27+](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Linux](https://img.shields.io/badge/platform-Linux-FCC624?logo=linux&logoColor=black)](#requirements)
-[![Kitty graphics](https://img.shields.io/badge/graphics-Kitty%20%2B%20half--block-7aa2f7)](#images-and-tmux)
+[![Kitty graphics](https://img.shields.io/badge/graphics-Kitty%20%2B%20half--block-cba6f7)](#images-and-tmux)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A terminal file manager with real thumbnails and a responsive grid/list layout,
 built for Ghostty and tmux.
 
-![fleek showing a grid of image thumbnails](docs/images/grid-preview.png)
+![fleek showing a grid of image thumbnails](docs/images/grid-halfblock.png)
 
-*Ghostty preview (composited). The terminal frame, text and layout are a real
-200×50 capture from foot; only the thumbnail cells are filled with the same
-480×320 images fleek uploads through the Kitty graphics protocol.
-[See the unmodified half-block capture](docs/images/grid-halfblock.png).
-Demo artwork is original.*
+*Actual 200×60 half-block capture. Demo artwork is generated for the screenshots.*
 
 ## Why fleek?
 
@@ -33,15 +29,22 @@ Demo artwork is original.*
 
 ## Screenshots
 
+All screenshots are half-block captures from the current build.
+
 | Full-screen viewer | File actions |
 |:---:|:---:|
-| <img src="docs/images/viewer-preview.png" width="100%" alt="Full-screen image viewer"> | <img src="docs/images/menu.png" width="100%" alt="File actions menu"> |
-| **Full-screen viewer** — `space` opens the selected image; arrows browse. *Ghostty preview (composited): UI from a real foot capture; image area filled at full resolution. [Unmodified capture](docs/images/viewer-halfblock.png).* | **File actions** — right-click or `m` to open, copy, cut, rename or trash. *Unmodified half-block capture.* |
-| <img src="docs/images/help.png" width="100%" alt="Keyboard help panel"> | <p align="center"><img src="docs/images/phone.png" width="58%" alt="fleek in a phone-sized terminal"></p> |
-| **Keyboard help** — every binding, scrollable in short windows. *Unmodified half-block capture.* | **Phone-sized terminal** — 40×23. *Unmodified half-block capture.* |
+| <img src="docs/images/viewer-halfblock.png" width="100%" alt="Full-screen image viewer"> | <img src="docs/images/menu.png" width="100%" alt="File actions menu"> |
+| **Full-screen viewer** — `space` opens the selected image; arrows browse. | **File actions** — right-click or `m` to open, copy, cut, rename or trash. |
 
-The grid and viewer previews are composited from real captures and are labeled
-as such. The menu, help and phone screenshots are unmodified.
+| Keyboard help | Settings |
+|:---:|:---:|
+| <img src="docs/images/help.png" width="100%" alt="Keyboard help panel"> | <img src="docs/images/settings.png" width="100%" alt="Settings window"> |
+| **Keyboard help** — every binding, scrollable in short windows. | **Settings** — theme, behavior, layout and image protocol, with a live preview. |
+
+<p align="center"><img src="docs/images/phone.png" width="30%" alt="fleek in a phone-sized terminal"></p>
+
+**Phone-sized terminal** — 40×23. Below 60 columns the grid becomes a compact
+list.
 
 ## Features
 
@@ -49,8 +52,8 @@ as such. The menu, help and phone screenshots are unmodified.
 - Nerd Font folder tiles and file-type icons
 - Places sidebar with mounted filesystems and free space
 - Right-click a folder to add it to the sidebar, or remove it again
-- Responsive grid, selection borders, breadcrumbs and history
-- Compact list on phone-sized terminals
+- Responsive grid on desktop, compact list on phones
+- Selection borders, breadcrumbs and navigation history
 - Recursive search across the current tree (`/`)
 - Copy, cut, paste, rename, trash and new-folder actions
 - Right-click context menu, plus keyboard equivalents
@@ -223,7 +226,7 @@ FLEEK_PROTOCOL=halfblock ./fleek ~/Pictures
 FLEEK_PROTOCOL=tgp ./fleek ~/Pictures
 ```
 
-The half-block renderer is what the unmodified screenshots above use:
+The screenshots above use the half-block renderer:
 [grid](docs/images/grid-halfblock.png),
 [viewer](docs/images/viewer-halfblock.png). It is also what terminals without
 Kitty graphics show.

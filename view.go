@@ -544,7 +544,7 @@ func (m *model) drawStatus(canvas *Canvas) {
 
 func (m *model) helpRows() [][2]string {
 	rows := [][2]string{
-		{"← ↑ ↓ →  hjkl", "move around the grid"},
+		{"← ↑ ↓ →  hjkl", "move around"},
 		{"enter", "open folder or file"},
 		{"double click", "open"},
 		{"backspace", "parent folder"},

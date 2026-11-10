@@ -356,7 +356,7 @@ func (m *model) drawSettings(canvas *Canvas) {
 	if width < 16 {
 		width = 16
 	}
-	height := len(rows) + 5
+	height := len(rows) + 6
 	if height > m.height-2 {
 		height = m.height - 2
 	}
