@@ -354,14 +354,22 @@ func (m *model) drawCompactGallery(canvas *Canvas) {
 
 func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
 	entry := m.entries[index]
+	selected := index == m.selected
 	background := colBG
 	foreground := colText
-	if index == m.selected {
+	if selected {
 		background = colSelected
 	}
 	canvas.fillRect(x, y, width, 1, background)
+	iconX := x
+	nameX := x + 2
+	if selected {
+		canvas.text(x, y, 1, "▌", colAccent, background)
+		iconX = x + 1
+		nameX = x + 3
+	}
 	style := styleFor(entry)
-	canvas.text(x, y, 1, style.icon, style.color, background)
+	canvas.text(iconX, y, 1, style.icon, style.color, background)
 
 	detail := ""
 	if !entry.IsDir {
@@ -375,16 +383,16 @@ func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
 			detailWidth = 0
 		}
 	}
-	nameWidth := width - 1
+	nameWidth := x + width - nameX
 	if detail != "" {
-		nameWidth -= detailWidth + 2
+		nameWidth -= detailWidth + 1
 		canvas.text(x+width-detailWidth, y, detailWidth, detail, colFaint, background)
 	}
 	name := m.entryLabel(entry)
 	if entry.IsLink {
 		name += " " + iconLink
 	}
-	canvas.text(x+2, y, nameWidth, name, foreground, background)
+	canvas.text(nameX, y, nameWidth, name, foreground, background)
 }
 
 func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
@@ -392,9 +400,13 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 	selected := index == m.selected
 	border := colBG
 	fill := colBG
+	labelBG := fill
+	labelColor := colMuted
 	if selected {
-		border = colAccent
+		border = colSelected
 		fill = colSelected
+		labelBG = colAccent
+		labelColor = colBG
 	}
 	canvas.box(x, y, width, cardH, border, fill)
 	contentWidth := width - 2
@@ -444,16 +456,12 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 		}
 	}
 
-	canvas.fillRect(x+1, y+cardH-2, width-2, 1, fill)
+	canvas.fillRect(x+1, y+cardH-2, width-2, 1, labelBG)
 	name := m.entryLabel(entry)
 	if entry.IsLink {
 		name += " " + iconLink
 	}
-	labelColor := colMuted
-	if selected {
-		labelColor = colText
-	}
-	canvas.centerText(x+1, y+cardH-2, width-2, name, labelColor, fill)
+	canvas.centerText(x+1, y+cardH-2, width-2, name, labelColor, labelBG)
 }
 
 func (m *model) drawScrollbar(canvas *Canvas) {
