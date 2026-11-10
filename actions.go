@@ -498,7 +498,7 @@ func (m *model) handleMenuClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	width := m.menuWidth()
-	height := len(m.menu.items) + 2
+	height := len(m.menu.items)
 	x := m.menu.x
 	if x+width > m.width-1 {
 		x = m.width - width - 1
@@ -963,7 +963,7 @@ func (m *model) drawMenu(canvas *Canvas) {
 		return
 	}
 	width := m.menuWidth()
-	height := len(m.menu.items) + 2
+	height := len(m.menu.items)
 	x := m.menu.x
 	if x+width > m.width-1 {
 		x = m.width - width - 1
@@ -980,15 +980,14 @@ func (m *model) drawMenu(canvas *Canvas) {
 	}
 	m.menu.x, m.menu.y = x, y
 	m.menu.hits = m.menu.hits[:0]
-	canvas.fillRect(x, y, width, height, colPanel)
-	canvas.box(x, y, width, height, colFaint, colPanel)
+	canvas.fillRect(x, y, width, height, colSidebar)
 	for index, item := range m.menu.items {
-		row := y + 1 + index
+		row := y + index
 		if item.separator {
-			canvas.text(x+2, row, width-4, strings.Repeat("─", width-4), colDimmer, colPanel)
+			canvas.text(x+2, row, width-4, strings.Repeat("─", width-4), colDimmer, colSidebar)
 			continue
 		}
-		background := colPanel
+		background := colSidebar
 		foreground := colText
 		if !item.enabled {
 			foreground = colDimmer
@@ -996,7 +995,7 @@ func (m *model) drawMenu(canvas *Canvas) {
 			background = colSidebarActive
 			foreground = colText
 		}
-		canvas.fillRect(x+1, row, width-2, 1, background)
+		canvas.fillRect(x, row, width, 1, background)
 		canvas.text(x+2, row, width-12, item.label, foreground, background)
 		if item.shortcut != "" {
 			canvas.text(x+width-2-runewidth.StringWidth(item.shortcut), row, runewidth.StringWidth(item.shortcut), item.shortcut, colFaint, background)
