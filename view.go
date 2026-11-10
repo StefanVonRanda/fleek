@@ -78,7 +78,7 @@ func (m *model) renderCanvas() *Canvas {
 
 func (m *model) drawTopbar(canvas *Canvas) {
 	y := topBarY
-	canvas.fillRect(0, y, m.width, topH-y, colTop)
+	canvas.fillRect(0, 0, m.width, topH, colTop)
 
 	back := colDimmer
 	if m.historyIndex > 0 {
