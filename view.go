@@ -363,11 +363,6 @@ func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
 	canvas.fillRect(x, y, width, 1, background)
 	iconX := x
 	nameX := x + 2
-	if selected {
-		canvas.text(x, y, 1, "▌", colAccent, background)
-		iconX = x + 1
-		nameX = x + 3
-	}
 	style := styleFor(entry)
 	canvas.text(iconX, y, 1, style.icon, style.color, background)
 
@@ -400,14 +395,13 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 	selected := index == m.selected
 	border := colBG
 	fill := colBG
-	labelBG := fill
 	labelColor := colMuted
 	if selected {
 		border = colSelected
 		fill = colSelected
-		labelBG = colAccent
-		labelColor = colBG
+		labelColor = colText
 	}
+	labelBG := fill
 	canvas.box(x, y, width, cardH, border, fill)
 	contentWidth := width - 2
 	imageX := x + 1 + (contentWidth-imgW)/2
