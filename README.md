@@ -22,9 +22,8 @@ built for Ghostty and tmux.
 - **Fast to drive.** Arrows or `hjkl` for the grid or list, `/` or `ctrl+f` for
   recursive search, and a right-click menu for copy, cut, rename, trash and new
   folders.
-- **Fits the window you have.** Full sidebar on wide terminals, an icon rail in
-  the middle, and a two-column thumbnail grid with a sidebar drawer on a
-  phone-sized 40×23 window.
+- **Fits the window you have.** Full sidebar on wide terminals, and a two-column
+  thumbnail grid with a sidebar drawer on narrow phone-sized windows.
 - **One binary, your config.** A single Go binary with TOML themes, layout,
   sorting and extra sidebar places. No daemon, no Electron.
 
@@ -159,11 +158,10 @@ and restores the folder; `enter` opens the selected result.
 
 ### Small terminals
 
-Below 90 columns the sidebar collapses to a three-column icon rail; below 60
-columns it becomes a two-column thumbnail grid with the sidebar behind a toggle.
-The help panel scrolls with `j`/`k`, arrow keys or the wheel. Search expands to
-the full path bar under 50 columns, and menus and dialogs size themselves to the
-window.
+Below 90 columns the sidebar becomes a drawer toggled from the top bar, and the
+grid uses two thumbnail columns. The help panel scrolls with `j`/`k`, arrow keys
+or the wheel. Search expands to the full path bar under 50 columns, and menus and
+dialogs size themselves to the window.
 
 ## Configuration
 

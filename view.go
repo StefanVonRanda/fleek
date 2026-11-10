@@ -31,11 +31,8 @@ var (
 )
 
 func responsiveSidebarWidth(width, preferred int) int {
-	if width < 60 {
-		return 0
-	}
 	if width < 90 {
-		return 3
+		return 0
 	}
 	if preferred < 14 {
 		return 14
@@ -47,7 +44,7 @@ func responsiveSidebarWidth(width, preferred int) int {
 }
 
 func (m *model) mobile() bool {
-	return m.width > 0 && m.width < 60
+	return m.width > 0 && m.width < 90
 }
 
 func (m *model) cardHeight() int {
