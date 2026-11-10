@@ -143,7 +143,9 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 
 Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
 breadcrumbs and toolbar icons are clickable. Right-click a folder to add or
-remove it from the sidebar.
+remove it from the sidebar. Shift+click selects a range; if your terminal
+reserves shift+click for text selection, set Ghostty's
+`mouse-shift-capture = true` or use `alt+click` for the same range.
 
 The actions menu includes **More…** for archive, batch rename, properties,
 permissions, ownership, copy path, open with, duplicate, symlink and terminal

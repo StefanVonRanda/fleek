@@ -706,7 +706,7 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		if mouse.X >= hit.x && mouse.X < hit.x+hit.width && mouse.Y >= hit.y && mouse.Y < hit.y+hit.height {
 			now := time.Now()
 			double := now.Sub(m.lastClick) < 450*time.Millisecond && m.lastClickIndex == hit.index
-			extend := mouse.Mod&tea.ModShift != 0
+			extend := mouse.Mod&(tea.ModShift|tea.ModAlt) != 0
 			toggle := mouse.Mod&(tea.ModCtrl|tea.ModMeta) != 0
 			m.lastClick = now
 			m.lastClickIndex = hit.index

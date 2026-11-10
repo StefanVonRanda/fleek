@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/colorprofile"
 )
 
-const version = "0.7.0"
+const version = "0.7.1"
 
 func main() {
 	flag.Usage = func() {
@@ -32,7 +32,10 @@ func main() {
 		path = flag.Arg(0)
 	}
 	program := tea.NewProgram(newModel(path), tea.WithColorProfile(colorprofile.TrueColor))
-	if _, err := program.Run(); err != nil {
+	setShiftCapture(true)
+	_, err = program.Run()
+	setShiftCapture(false)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
