@@ -23,7 +23,8 @@ built for Ghostty and tmux.
   recursive search, and a right-click menu for copy, cut, rename, trash and new
   folders.
 - **Fits the window you have.** Full sidebar on wide terminals, an icon rail in
-  the middle, a compact list on a phone-sized 40×23 window.
+  the middle, and a two-column thumbnail grid with a sidebar drawer on a
+  phone-sized 40×23 window.
 - **One binary, your config.** A single Go binary with TOML themes, layout,
   sorting and extra sidebar places. No daemon, no Electron.
 
@@ -41,10 +42,10 @@ All screenshots are half-block captures from the current build.
 | <img src="docs/images/help.png" width="100%" alt="Keyboard help panel"> | <img src="docs/images/settings.png" width="100%" alt="Settings window"> |
 | **Keyboard help** — every binding, scrollable in short windows. | **Settings** — theme, behavior, layout and image protocol, with a live preview. |
 
-<p align="center"><img src="docs/images/phone.png" width="30%" alt="fleek in a phone-sized terminal"></p>
-
-**Phone-sized terminal** — 40×23. Below 60 columns the grid becomes a compact
-list.
+| Phone grid | Phone sidebar |
+|:---:|:---:|
+| <img src="docs/images/phone.png" width="100%" alt="Two-column thumbnail grid on a phone-sized terminal"> | <img src="docs/images/phone-sidebar.png" width="100%" alt="Sidebar drawer on a phone-sized terminal"> |
+| **Phone grid** — two-column thumbnails below 60 columns. | **Sidebar drawer** — full labels instead of an icon rail. |
 
 ## Features
 
@@ -54,7 +55,8 @@ list.
 - Right-click a folder to add it to the sidebar, or remove it again
 - Multi-select with shift/ctrl-click, shift+arrows or `ctrl+a`
 - Tabs with independent directory, history, selection and scroll
-- Responsive grid on desktop, compact list on phones
+- Responsive thumbnail grid on desktop and phones
+- Sidebar drawer toggle on phones
 - Selection borders, breadcrumbs and navigation history
 - Recursive search across the current tree (`/`)
 - Type-to-filter the current folder (`f`)
@@ -135,7 +137,7 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `/` or `ctrl+f` | recursive search |
 | `f` | filter the current folder |
 | `o` | reverse sort |
-| `tab` | jump between the grid and sidebar |
+| `tab` | jump to the sidebar / toggle the mobile drawer |
 | `r` | refresh |
 | `s` / `ctrl+,` | settings and theme |
 | `?` | help |
@@ -145,7 +147,8 @@ Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
 breadcrumbs and toolbar icons are clickable. Right-click a folder to add or
 remove it from the sidebar. Shift+click selects a range; if your terminal
 reserves shift+click for text selection, set Ghostty's
-`mouse-shift-capture = true` or use `alt+click` for the same range.
+`mouse-shift-capture = true` or use `alt+click` for the same range. On phones,
+the top-left toggle (or `tab`) opens the sidebar drawer.
 
 The actions menu includes **More…** for archive, batch rename, properties,
 permissions, ownership, copy path, open with, duplicate, symlink and terminal
@@ -156,11 +159,11 @@ and restores the folder; `enter` opens the selected result.
 
 ### Small terminals
 
-Below 90 columns the sidebar collapses to a three-column icon rail; below 36
-columns it is hidden and the grid uses the full width. Below 60 columns the grid
-becomes a compact list. The help panel scrolls with `j`/`k`, arrow keys or the
-wheel. Search expands to the full path bar under 50 columns, and menus and
-dialogs size themselves to the window.
+Below 90 columns the sidebar collapses to a three-column icon rail; below 60
+columns it becomes a two-column thumbnail grid with the sidebar behind a toggle.
+The help panel scrolls with `j`/`k`, arrow keys or the wheel. Search expands to
+the full path bar under 50 columns, and menus and dialogs size themselves to the
+window.
 
 ## Configuration
 

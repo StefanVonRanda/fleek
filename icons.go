@@ -20,6 +20,7 @@ const (
 	iconRefresh  = "\uf021"
 	iconHelp     = "\uf059"
 	iconSettings = "\uf013"
+	iconSidebar  = "\uf0c9"
 	iconLink     = "\uf0c1"
 	iconFolder   = "\uf07b"
 	iconBookmark = "\uf02e"

@@ -56,6 +56,7 @@ func (m *model) restoreTab(state tabState) {
 	m.free = state.free
 	m.searchToken++
 	m.focus = focusGrid
+	m.sidebarOpen = false
 	m.clampScroll()
 	m.ensureVisible()
 }

@@ -149,9 +149,10 @@ type model struct {
 	tabs      []tabState
 	tabIndex  int
 
-	sideCursor int
-	help       bool
-	helpOffset int
+	sideCursor  int
+	sidebarOpen bool
+	help        bool
+	helpOffset  int
 
 	history      []string
 	historyIndex int
@@ -243,7 +244,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		sidebarW = responsiveSidebarWidth(m.width, preferredSidebarW)
-		if sidebarW == 0 && m.focus == focusSidebar {
+		if sidebarW > 0 {
+			m.sidebarOpen = false
+		}
+		if sidebarW == 0 && !m.sidebarOpen && m.focus == focusSidebar {
 			m.focus = focusGrid
 		}
 		m.ensureVisible()
@@ -379,6 +383,11 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.toggleFocus()
 		return m, nil
 	case "esc":
+		if m.mobile() && m.sidebarOpen {
+			m.sidebarOpen = false
+			m.focus = focusGrid
+			return m, nil
+		}
 		if len(m.selection) > 0 {
 			m.clearSelection()
 			return m, nil
@@ -622,6 +631,11 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		if m.settings != nil {
 			return m, m.cancelSettings()
 		}
+		if m.mobile() && m.sidebarOpen {
+			m.sidebarOpen = false
+			m.focus = focusGrid
+			return m, nil
+		}
 		if mouse.Y >= topH && mouse.Y < m.height-statusH && mouse.X >= sidebarW {
 			m.openMenuAt(mouse.X, mouse.Y)
 		}
@@ -671,6 +685,9 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 				case "settings":
 					m.openSettings()
 					return m, nil
+				case "sidebar":
+					m.toggleSidebar()
+					return m, nil
 				}
 			}
 		}
@@ -692,6 +709,20 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 				return m, m.loadDir(hit.path, true, "")
 			}
 		}
+		return m, nil
+	}
+	if m.mobile() && m.sidebarOpen {
+		panel := m.mobileSidebarWidth()
+		if mouse.X < panel && mouse.Y >= topH && mouse.Y < m.height-statusH {
+			for _, hit := range m.sideHits {
+				if mouse.Y == hit.y {
+					return m, m.loadDir(hit.path, true, "")
+				}
+			}
+			return m, nil
+		}
+		m.sidebarOpen = false
+		m.focus = focusGrid
 		return m, nil
 	}
 	if mouse.X < sidebarW {
@@ -775,6 +806,10 @@ func (m *model) handleWheel(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) toggleFocus() {
+	if m.mobile() {
+		m.toggleSidebar()
+		return
+	}
 	if sidebarW == 0 {
 		m.focus = focusGrid
 		return
@@ -789,12 +824,31 @@ func (m *model) toggleFocus() {
 	}
 }
 
+func (m *model) toggleSidebar() {
+	if !m.mobile() {
+		m.toggleFocus()
+		return
+	}
+	m.sidebarOpen = !m.sidebarOpen
+	if m.sidebarOpen {
+		m.focus = focusSidebar
+		if index, ok := m.activePlaceIndex(); ok {
+			m.sideCursor = index
+		} else {
+			m.sideCursor = 0
+		}
+		return
+	}
+	m.focus = focusGrid
+}
+
 func (m *model) loadDir(path string, addHistory bool, selectPath string) tea.Cmd {
 	target, err := filepath.Abs(path)
 	if err != nil {
 		m.notice = err.Error()
 		return nil
 	}
+	m.sidebarOpen = false
 	info, err := os.Stat(target)
 	if err != nil || !info.IsDir() {
 		m.notice = fmt.Sprintf("Can't open %s", filepath.Base(target))
@@ -1025,9 +1079,6 @@ func (m *model) moveSelection(delta int) {
 }
 
 func (m *model) gridCols() int {
-	if m.compact() {
-		return 1
-	}
 	columns, _, _ := m.cardMetrics()
 	return columns
 }
@@ -1036,6 +1087,20 @@ func (m *model) cardMetrics() (int, int, int) {
 	contentWidth := m.width - sidebarW - 2*padX
 	if contentWidth < 2 {
 		return 1, max(2, contentWidth), sidebarW + padX
+	}
+	if m.mobile() {
+		columns := 2
+		gap := m.cardGapX()
+		if contentWidth < 24 {
+			columns = 1
+		}
+		cardWidth := (contentWidth - (columns-1)*gap) / columns
+		if cardWidth < 2 {
+			cardWidth = 2
+		}
+		used := columns*cardWidth + (columns-1)*gap
+		startX := sidebarW + padX + max(0, (contentWidth-used)/2)
+		return columns, cardWidth, startX
 	}
 	columns := (contentWidth + gapX) / (minCardW + gapX)
 	if columns < 1 {
@@ -1055,10 +1120,7 @@ func (m *model) visibleRows() int {
 	if body <= 0 {
 		return 1
 	}
-	if m.compact() {
-		return body
-	}
-	rows := body / (cardH + gapY)
+	rows := body / (m.cardHeight() + m.cardGapY())
 	if rows < 1 {
 		rows = 1
 	}
@@ -1104,9 +1166,6 @@ func (m *model) ensureVisible() {
 
 func (m *model) thumbCmds() tea.Cmd {
 	if !m.started || m.svc == nil || len(m.entries) == 0 {
-		return nil
-	}
-	if m.compact() {
 		return nil
 	}
 	start, end := m.visibleRange()

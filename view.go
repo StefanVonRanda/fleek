@@ -16,6 +16,10 @@ const (
 	cardH   = 11
 	imgW    = 23
 	imgH    = 7
+
+	mobileCardH = 8
+	mobileGapX  = 1
+	mobileGapY  = 1
 )
 
 var (
@@ -27,7 +31,7 @@ var (
 )
 
 func responsiveSidebarWidth(width, preferred int) int {
-	if width < 36 {
+	if width < 60 {
 		return 0
 	}
 	if width < 90 {
@@ -42,8 +46,58 @@ func responsiveSidebarWidth(width, preferred int) int {
 	return preferred
 }
 
-func (m *model) compact() bool {
+func (m *model) mobile() bool {
 	return m.width > 0 && m.width < 60
+}
+
+func (m *model) cardHeight() int {
+	if m.mobile() {
+		return mobileCardH
+	}
+	return cardH
+}
+
+func (m *model) cardGapX() int {
+	if m.mobile() {
+		return mobileGapX
+	}
+	return gapX
+}
+
+func (m *model) cardGapY() int {
+	if m.mobile() {
+		return mobileGapY
+	}
+	return gapY
+}
+
+func (m *model) cardImageSize(width int) (int, int) {
+	if m.mobile() {
+		imageWidth := width - 4
+		if imageWidth < 4 {
+			imageWidth = 4
+		}
+		imageHeight := m.cardHeight() - 4
+		if imageHeight < 2 {
+			imageHeight = 2
+		}
+		return imageWidth, imageHeight
+	}
+	return imgW, imgH
+}
+
+func (m *model) mobileSidebarWidth() int {
+	width := preferredSidebarW + 2
+	if width > m.width-4 {
+		width = m.width - 4
+	}
+	if width > 26 {
+		width = 26
+	}
+	if width < 16 {
+		width = 16
+	}
+	return width
 }
 
 type crumb struct {
@@ -63,8 +117,8 @@ func (m *model) renderCanvas() *Canvas {
 		return canvas
 	}
 	m.drawTopbar(canvas)
-	m.drawSidebar(canvas)
 	m.drawGallery(canvas)
+	m.drawSidebar(canvas)
 	m.drawStatus(canvas)
 	if m.settings != nil {
 		m.drawSettings(canvas)
@@ -94,6 +148,14 @@ func (m *model) drawTopbar(canvas *Canvas) {
 		forward = colMuted
 	}
 	compactSearch := (m.search || m.filterLocal) && m.width < 50
+	if m.mobile() {
+		color := colMuted
+		if m.sidebarOpen {
+			color = colAccent
+		}
+		canvas.text(0, y, 1, iconSidebar, color, colTop)
+		m.topHits = append(m.topHits, topHit{0, 0, "sidebar"})
+	}
 	if !compactSearch {
 		canvas.text(2, y, 1, iconBack, back, colTop)
 		canvas.text(4, y, 1, iconForward, forward, colTop)
@@ -120,7 +182,7 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	} else {
 		x := 7
 		limit := m.width - 18
-		if m.compact() {
+		if m.mobile() {
 			label := filepath.Base(m.cwd)
 			if m.cwd == userHome() {
 				label = "~"
@@ -255,6 +317,9 @@ func (m *model) drawSidebar(canvas *Canvas) {
 		return
 	}
 	if sidebarW <= 0 {
+		if m.mobile() && m.sidebarOpen {
+			m.drawMobileSidebar(canvas, body)
+		}
 		return
 	}
 	canvas.fillRect(0, topH, sidebarW, body, colSidebar)
@@ -326,6 +391,53 @@ func (m *model) drawSidebar(canvas *Canvas) {
 	}
 }
 
+func (m *model) drawMobileSidebar(canvas *Canvas, body int) {
+	width := m.mobileSidebarWidth()
+	canvas.fillRect(0, topH, width, body, colSidebar)
+	active, hasActive := m.activePlaceIndex()
+	y := topH + 1
+	drawSection := func(label string) {
+		if y >= topH+body {
+			return
+		}
+		canvas.text(2, y, width-3, label, colFaint, colSidebar)
+		y++
+	}
+	drawPlace := func(index int, place Place) {
+		if y >= topH+body {
+			return
+		}
+		background := colSidebar
+		foreground := colSidebarText
+		if hasActive && index == active {
+			background = colSidebarActive
+			foreground = colText
+		}
+		if m.focus == focusSidebar && index == m.sideCursor {
+			background = colSidebarActive
+			foreground = colText
+		}
+		canvas.fillRect(0, y, width, 1, background)
+		canvas.text(1, y, 1, place.Icon, place.Color, background)
+		canvas.text(4, y, width-5, truncateText(place.Label, width-5), foreground, background)
+		m.sideHits = append(m.sideHits, sideHit{y, place.Path})
+		y++
+	}
+	drawSection("PLACES")
+	for index, place := range m.places {
+		drawPlace(index, place)
+	}
+	if len(m.devices) > 0 {
+		if y < topH+body {
+			y++
+		}
+		drawSection("DEVICES")
+		for index, place := range m.devices {
+			drawPlace(len(m.places)+index, place)
+		}
+	}
+}
+
 func (m *model) drawGallery(canvas *Canvas) {
 	body := m.height - topH - statusH
 	if body <= 0 {
@@ -333,10 +445,6 @@ func (m *model) drawGallery(canvas *Canvas) {
 	}
 	if len(m.entries) == 0 {
 		m.drawEmpty(canvas)
-		return
-	}
-	if m.compact() {
-		m.drawCompactGallery(canvas)
 		return
 	}
 	columns := m.gridCols()
@@ -349,83 +457,21 @@ func (m *model) drawGallery(canvas *Canvas) {
 	}
 	_, cardWidth, startX := m.cardMetrics()
 	startY := topH + 1
+	gapX := m.cardGapX()
+	gapY := m.cardGapY()
+	height := m.cardHeight()
 	for index := start; index < end; index++ {
 		row := index / columns
 		column := index % columns
 		x := startX + column*(cardWidth+gapX)
-		y := startY + (row-m.scroll)*(cardH+gapY)
+		y := startY + (row-m.scroll)*(height+gapY)
 		if y >= topH+body || x+cardWidth > m.width {
 			continue
 		}
-		m.cardHits = append(m.cardHits, cardHit{x, y, cardWidth, cardH, index})
+		m.cardHits = append(m.cardHits, cardHit{x, y, cardWidth, height, index})
 		m.drawCard(canvas, x, y, cardWidth, index)
 	}
 	m.drawScrollbar(canvas)
-}
-
-func (m *model) drawCompactGallery(canvas *Canvas) {
-	m.clampScroll()
-	rows := m.visibleRows()
-	start := m.scroll
-	end := start + rows
-	if end > len(m.entries) {
-		end = len(m.entries)
-	}
-	x := sidebarW
-	if x < 0 {
-		x = 0
-	}
-	width := m.width - x - 1
-	if width < 4 {
-		width = m.width - x
-	}
-	for index := start; index < end; index++ {
-		y := topH + index - start
-		m.cardHits = append(m.cardHits, cardHit{x, y, width, 1, index})
-		m.drawCompactRow(canvas, x, y, width, index)
-	}
-	m.drawScrollbar(canvas)
-}
-
-func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
-	entry := m.entries[index]
-	highlighted := m.isSelected(index)
-	cursor := index == m.selected
-	background := colBG
-	foreground := colText
-	if highlighted {
-		background = colSelected
-	} else if cursor {
-		background = colHover
-	}
-	canvas.fillRect(x, y, width, 1, background)
-	iconX := x
-	nameX := x + 2
-	style := styleFor(entry)
-	canvas.text(iconX, y, 1, style.icon, style.color, background)
-
-	detail := ""
-	if !entry.IsDir {
-		detail = humanBytes(uint64(entry.Size))
-	}
-	detailWidth := 0
-	if detail != "" {
-		detailWidth = runewidth.StringWidth(detail)
-		if detailWidth+12 > width {
-			detail = ""
-			detailWidth = 0
-		}
-	}
-	nameWidth := x + width - nameX
-	if detail != "" {
-		nameWidth -= detailWidth + 1
-		canvas.text(x+width-detailWidth, y, detailWidth, detail, colFaint, background)
-	}
-	name := m.entryLabel(entry)
-	if entry.IsLink {
-		name += " " + iconLink
-	}
-	canvas.text(nameX, y, nameWidth, name, foreground, background)
 }
 
 func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
@@ -445,35 +491,42 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 		labelColor = colText
 	}
 	labelBG := fill
-	canvas.box(x, y, width, cardH, border, fill)
+	height := m.cardHeight()
+	imageWidth, imageHeight := m.cardImageSize(width)
+	canvas.box(x, y, width, height, border, fill)
 	contentWidth := width - 2
-	imageX := x + 1 + (contentWidth-imgW)/2
+	imageX := x + 1 + (contentWidth-imageWidth)/2
 	if imageX < x+1 {
 		imageX = x + 1
 	}
-	canvas.fillRect(imageX, y+1, imgW, imgH, fill)
+	canvas.fillRect(imageX, y+1, imageWidth, imageHeight, fill)
 
 	thumb := m.thumbs[entry.Path]
 	if thumb != nil && (thumb.ModTime != entry.ModTime.UnixNano() || thumb.Size != entry.Size) {
 		thumb = nil
 	}
 	drawImage := false
+	offsetX, offsetY := 0, 0
+	if m.mobile() {
+		offsetX = (halfWidth - imageWidth) / 2
+		offsetY = (imgH - imageHeight) / 2
+	}
 	if thumb != nil {
 		switch m.protocol {
 		case protoTGP:
 			if thumb.Uploaded {
-				for row := 0; row < imgH; row++ {
-					for column := 0; column < imgW; column++ {
-						canvas.putImage(imageX+column, y+1+row, placeholder(thumb.ID, row, column), kittyColor(thumb.ID), fill)
+				for row := 0; row < imageHeight; row++ {
+					for column := 0; column < imageWidth; column++ {
+						canvas.putImage(imageX+column, y+1+row, placeholder(thumb.ID, row+offsetY, column+offsetX), kittyColor(thumb.ID), fill)
 					}
 				}
 				drawImage = true
 			}
 		default:
-			if len(thumb.Half) >= imgW*imgH {
-				for row := 0; row < imgH; row++ {
-					for column := 0; column < imgW; column++ {
-						cell := thumb.Half[row*imgW+column]
+			if len(thumb.Half) >= halfWidth*imgH {
+				for row := 0; row < imageHeight; row++ {
+					for column := 0; column < imageWidth; column++ {
+						cell := thumb.Half[(row+offsetY)*halfWidth+(column+offsetX)]
 						canvas.putImage(imageX+column, y+1+row, "▀", cell.Top, cell.Bottom)
 					}
 				}
@@ -483,22 +536,28 @@ func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 	}
 	if !drawImage {
 		if entry.Kind == "folder" {
-			drawFolderGlyph(canvas, imageX, y+1, fill)
+			drawFolderGlyph(canvas, imageX, y+1, imageWidth, imageHeight, fill)
 		} else {
 			style := styleFor(entry)
 			background := tileColor(style)
-			canvas.fillRect(imageX, y+1, imgW, imgH, background)
-			canvas.centerText(imageX, y+2, imgW, style.icon, style.color, background)
-			canvas.centerText(imageX, y+4, imgW, style.label, colMuted, background)
+			canvas.fillRect(imageX, y+1, imageWidth, imageHeight, background)
+			iconRow := y + 2
+			labelRow := y + 4
+			if imageHeight < 7 {
+				iconRow = y + 1
+				labelRow = y + 2
+			}
+			canvas.centerText(imageX, iconRow, imageWidth, style.icon, style.color, background)
+			canvas.centerText(imageX, labelRow, imageWidth, style.label, colMuted, background)
 		}
 	}
 
-	canvas.fillRect(x+1, y+cardH-2, width-2, 1, labelBG)
+	canvas.fillRect(x+1, y+height-2, width-2, 1, labelBG)
 	name := m.entryLabel(entry)
 	if entry.IsLink {
 		name += " " + iconLink
 	}
-	canvas.centerText(x+1, y+cardH-2, width-2, name, labelColor, labelBG)
+	canvas.centerText(x+1, y+height-2, width-2, name, labelColor, labelBG)
 }
 
 func (m *model) drawScrollbar(canvas *Canvas) {
@@ -509,10 +568,6 @@ func (m *model) drawScrollbar(canvas *Canvas) {
 	}
 	trackTop := topH + 1
 	trackHeight := m.height - topH - statusH - 2
-	if m.compact() {
-		trackTop = topH
-		trackHeight = m.height - topH - statusH
-	}
 	if trackHeight <= 0 {
 		return
 	}
@@ -552,7 +607,7 @@ func (m *model) drawEmpty(canvas *Canvas) {
 func (m *model) drawStatus(canvas *Canvas) {
 	y := m.height - statusH
 	canvas.fillRect(0, y, m.width, statusH, colStatus)
-	if m.notice != "" && m.compact() {
+	if m.notice != "" && m.mobile() {
 		canvas.centerText(2, y, m.width-4, m.notice, colRed, colStatus)
 		return
 	}
@@ -692,8 +747,8 @@ func (m *model) drawHelp(canvas *Canvas) {
 	canvas.centerText(x+2, footerY, panelWidth-4, hint, colFaint, colPanel)
 }
 
-func drawFolderGlyph(canvas *Canvas, x, y int, fill RGB) {
+func drawFolderGlyph(canvas *Canvas, x, y, width, height int, fill RGB) {
 	background := blend(fill, colAccent, 0.10)
-	canvas.fillRect(x, y, imgW, imgH, background)
-	canvas.centerText(x, y+3, imgW, iconFolder, colAccent, background)
+	canvas.fillRect(x, y, width, height, background)
+	canvas.centerText(x, y+height/2, width, iconFolder, colAccent, background)
 }
