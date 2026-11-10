@@ -5,7 +5,8 @@
 [![Kitty graphics](https://img.shields.io/badge/graphics-Kitty%20%2B%20half--block-7aa2f7)](#images-and-tmux)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A grid-first terminal file manager with real thumbnails, built for Ghostty and tmux.
+A terminal file manager with real thumbnails and a responsive grid/list layout,
+built for Ghostty and tmux.
 
 ![fleek showing a grid of image thumbnails](docs/images/grid-preview.png)
 
@@ -22,11 +23,11 @@ Demo artwork is original.*
 - **Built for the terminal you already use.** Kitty graphics with Unicode
   placeholders in Ghostty, Kitty and WezTerm, including inside tmux. Everything
   else gets a colored half-block fallback.
-- **Fast to drive.** Arrows or `hjkl` for the grid, `/` or `ctrl+f` for
+- **Fast to drive.** Arrows or `hjkl` for the grid or list, `/` or `ctrl+f` for
   recursive search, and a right-click menu for copy, cut, rename, trash and new
   folders.
 - **Fits the window you have.** Full sidebar on wide terminals, an icon rail in
-  the middle, a single-column grid on a phone-sized 40×23 window.
+  the middle, a compact list on a phone-sized 40×23 window.
 - **One binary, your config.** A single Go binary with TOML themes, layout,
   sorting and extra sidebar places. No daemon, no Electron.
 
@@ -101,7 +102,7 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 
 | Key | Action |
 | --- | --- |
-| `←` `↑` `↓` `→`, `hjkl` | move in the grid |
+| `←` `↑` `↓` `→`, `hjkl` | move in the grid or list |
 | `enter` / double-click | open folder or file |
 | double-click image | full-screen viewer |
 | `space` | preview selected image |
@@ -122,7 +123,8 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `q` / `ctrl+c` | quit (`ctrl+c` works from any view) |
 
 Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
-breadcrumbs and toolbar icons are clickable.
+breadcrumbs and toolbar icons are clickable. Right-click a folder to add or
+remove it from the sidebar.
 
 Search results show paths relative to the current directory. `esc` closes search
 and restores the folder; `enter` opens the selected result.
@@ -142,9 +144,9 @@ by default. Use `--config PATH` or `FLEEK_CONFIG` to load another file.
 `examples/config.toml` is the complete annotated example.
 
 Press `s` (or `ctrl+,`) to open the settings window. It edits the theme palette,
-behavior, layout and image protocol with a live preview. `ctrl+s` saves to the
-active config file and `esc` discards the changes. Saving settings or a bookmark
-rewrites the file, so comments in a hand-edited config are not preserved.
+behavior, layout and image protocol with a live preview. `ctrl+s` (or `s`) saves
+to the active config file and `esc` discards the changes. Saving settings or a
+bookmark rewrites the file, so comments in a hand-edited config are not preserved.
 
 ```toml
 [theme]
