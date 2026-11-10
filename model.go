@@ -47,20 +47,25 @@ type dialogState struct {
 	message string
 	value   string
 	target  string
+	paths   []string
+	lines   []string
 	replace bool
 }
 
 type previewState struct {
-	entry    Entry
-	png      []byte
-	half     []HalfCell
-	cols     int
-	rows     int
-	id       uint32
-	uploaded bool
-	loading  bool
-	err      string
-	token    int
+	entry      Entry
+	png        []byte
+	half       []HalfCell
+	cols       int
+	rows       int
+	id         uint32
+	uploaded   bool
+	loading    bool
+	err        string
+	token      int
+	text       []string
+	textOffset int
+	textMode   bool
 }
 
 type thumbMsg struct {
@@ -102,6 +107,7 @@ type model struct {
 	all             []Entry
 	entries         []Entry
 	filter          string
+	filterLocal     bool
 	search          bool
 	searchResults   bool
 	searching       bool
@@ -110,8 +116,11 @@ type model struct {
 	hidden          bool
 
 	selected int
+	anchor   int
 	scroll   int
 	focus    focusPane
+
+	selection map[string]bool
 
 	sideCursor int
 	help       bool
@@ -164,6 +173,7 @@ func newModel(initial string) *model {
 		thumbs:         map[string]*Thumb{},
 		pending:        map[string]bool{},
 		tried:          map[string]bool{},
+		selection:      map[string]bool{},
 		lastClickIndex: -1,
 	}
 }
@@ -264,7 +274,7 @@ func (m *model) View() tea.View {
 	if m.preview == nil && !m.help {
 		if m.dialog != nil && m.dialog.kind == "prompt" && m.cursorPosX > 0 {
 			view.Cursor = tea.NewCursor(m.cursorPosX, m.cursorPosY)
-		} else if m.search {
+		} else if m.search || m.filterLocal {
 			view.Cursor = tea.NewCursor(m.searchCursorX(), topBarY)
 		}
 	}
@@ -315,6 +325,9 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.search {
 		return m.handleSearchKey(msg)
 	}
+	if m.filterLocal {
+		return m.handleFilterKey(msg)
+	}
 
 	switch key {
 	case "q":
@@ -323,10 +336,40 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.toggleFocus()
 		return m, nil
 	case "esc":
+		if len(m.selection) > 0 {
+			m.clearSelection()
+			return m, nil
+		}
 		if m.focus == focusSidebar {
 			m.focus = focusGrid
 		}
 		return m, nil
+	case "ctrl+a":
+		m.selectAll()
+		return m, m.thumbCmds()
+	case "t":
+		m.toggleSelected(m.selected)
+		return m, m.thumbCmds()
+	case "shift+up":
+		m.extendSelection(-m.gridCols())
+		return m, m.thumbCmds()
+	case "shift+down":
+		m.extendSelection(m.gridCols())
+		return m, m.thumbCmds()
+	case "shift+left":
+		m.extendSelection(-1)
+		return m, m.thumbCmds()
+	case "shift+right":
+		m.extendSelection(1)
+		return m, m.thumbCmds()
+	case "shift+home":
+		m.extendSelection(-m.selected)
+		return m, m.thumbCmds()
+	case "shift+end":
+		if len(m.entries) > 0 {
+			m.extendSelection(len(m.entries) - 1 - m.selected)
+		}
+		return m, m.thumbCmds()
 	case "alt+left":
 		return m, m.historyBack()
 	case "alt+right":
@@ -340,8 +383,19 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.reload()
 	case "r":
 		return m, m.reload()
+	case "o":
+		sortReverse = !sortReverse
+		appConfig.Behavior.SortReverse = sortReverse
+		if sortReverse {
+			m.notice = "Reverse sort on"
+		} else {
+			m.notice = "Reverse sort off"
+		}
+		return m, m.reload()
 	case "/", "ctrl+f":
 		return m, m.beginSearch()
+	case "f":
+		return m, m.beginLocalFilter()
 	case "?":
 		m.help = true
 		m.helpOffset = 0
@@ -368,15 +422,19 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "pgdown", "pagedown":
 		m.moveSelection(m.visibleRows() * m.gridCols())
 	case "home":
+		m.clearSelection()
 		m.setSelected(0)
 	case "end":
 		if len(m.entries) > 0 {
+			m.clearSelection()
 			m.setSelected(len(m.entries) - 1)
 		}
 	case "g":
+		m.clearSelection()
 		m.setSelected(0)
 	case "G":
 		if len(m.entries) > 0 {
+			m.clearSelection()
 			m.setSelected(len(m.entries) - 1)
 		}
 	case "enter":
@@ -390,6 +448,10 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "v":
 		return m, m.pasteClipboard()
 	case "f2":
+		if len(m.selection) > 1 {
+			m.notice = "Rename is single-item"
+			return m, nil
+		}
 		m.startRename(m.selectedEntry())
 		return m, nil
 	case "n":
@@ -572,12 +634,23 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 		if mouse.X >= hit.x && mouse.X < hit.x+hit.width && mouse.Y >= hit.y && mouse.Y < hit.y+hit.height {
 			now := time.Now()
 			double := now.Sub(m.lastClick) < 450*time.Millisecond && m.lastClickIndex == hit.index
+			extend := mouse.Mod&tea.ModShift != 0
+			toggle := mouse.Mod&(tea.ModCtrl|tea.ModMeta) != 0
 			m.lastClick = now
 			m.lastClickIndex = hit.index
 			m.focus = focusGrid
-			m.setSelected(hit.index)
+			switch {
+			case extend:
+				m.selectRangeTo(hit.index)
+			case toggle:
+				m.toggleSelected(hit.index)
+			default:
+				m.clearSelection()
+				m.setSelected(hit.index)
+				m.anchor = hit.index
+			}
 			m.ensureVisible()
-			if double {
+			if double && !extend && !toggle {
 				entry := m.entries[hit.index]
 				if entry.IsDir {
 					return m, m.loadDir(entry.Path, true, "")
@@ -663,7 +736,9 @@ func (m *model) loadDir(path string, addHistory bool, selectPath string) tea.Cmd
 	m.cwd = target
 	m.all = entries
 	m.entries = entries
+	m.clearSelection()
 	m.filter = ""
+	m.filterLocal = false
 	m.search = false
 	m.searchResults = false
 	m.searching = false
@@ -757,6 +832,104 @@ func (m *model) selectedPath() string {
 	return ""
 }
 
+func (m *model) selectionCount() int {
+	if len(m.selection) > 0 {
+		return len(m.selection)
+	}
+	if m.selectedEntry() != nil {
+		return 1
+	}
+	return 0
+}
+
+func (m *model) selectedPaths() []string {
+	if len(m.selection) == 0 {
+		if entry := m.selectedEntry(); entry != nil {
+			return []string{entry.Path}
+		}
+		return nil
+	}
+	paths := make([]string, 0, len(m.selection))
+	for _, entry := range m.entries {
+		if m.selection[entry.Path] {
+			paths = append(paths, entry.Path)
+		}
+	}
+	return paths
+}
+
+func (m *model) isSelected(index int) bool {
+	if index < 0 || index >= len(m.entries) {
+		return false
+	}
+	if len(m.selection) == 0 {
+		return index == m.selected
+	}
+	return m.selection[m.entries[index].Path]
+}
+
+func (m *model) clearSelection() {
+	m.selection = map[string]bool{}
+}
+
+func (m *model) toggleSelected(index int) {
+	if index < 0 || index >= len(m.entries) {
+		return
+	}
+	path := m.entries[index].Path
+	if m.selection[path] {
+		delete(m.selection, path)
+	} else {
+		m.selection[path] = true
+	}
+	m.selected = index
+	m.anchor = index
+}
+
+func (m *model) selectRangeTo(index int) {
+	if len(m.entries) == 0 {
+		return
+	}
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(m.entries) {
+		index = len(m.entries) - 1
+	}
+	from, to := m.anchor, index
+	if from < 0 || from >= len(m.entries) {
+		from = m.selected
+	}
+	if from > to {
+		from, to = to, from
+	}
+	for position := from; position <= to; position++ {
+		m.selection[m.entries[position].Path] = true
+	}
+	m.selected = index
+}
+
+func (m *model) selectAll() {
+	for _, entry := range m.entries {
+		m.selection[entry.Path] = true
+	}
+	m.anchor = 0
+}
+
+func (m *model) extendSelection(delta int) {
+	if len(m.entries) == 0 {
+		return
+	}
+	if len(m.selection) == 0 {
+		m.anchor = m.selected
+		if entry := m.selectedEntry(); entry != nil {
+			m.selection[entry.Path] = true
+		}
+	}
+	m.selectRangeTo(m.selected + delta)
+	m.ensureVisible()
+}
+
 func (m *model) setSelected(index int) {
 	if len(m.entries) == 0 {
 		m.selected = 0
@@ -769,6 +942,9 @@ func (m *model) setSelected(index int) {
 		index = len(m.entries) - 1
 	}
 	m.selected = index
+	if len(m.selection) == 0 {
+		m.anchor = index
+	}
 }
 
 func (m *model) moveSelection(delta int) {

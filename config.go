@@ -39,6 +39,7 @@ type ThemeConfig struct {
 type BehaviorConfig struct {
 	ShowHidden       bool   `toml:"show_hidden"`
 	Sort             string `toml:"sort"`
+	SortReverse      bool   `toml:"sort_reverse"`
 	DirectoriesFirst bool   `toml:"directories_first"`
 }
 
@@ -156,6 +157,7 @@ func applyConfig(config Config) {
 		sortMode = "name"
 	}
 	dirsFirst = config.Behavior.DirectoriesFirst
+	sortReverse = config.Behavior.SortReverse
 
 	if config.Layout.SidebarWidth >= 14 && config.Layout.SidebarWidth <= 32 {
 		sidebarW = config.Layout.SidebarWidth

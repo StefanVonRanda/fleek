@@ -92,7 +92,7 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	if m.historyIndex < len(m.history)-1 {
 		forward = colMuted
 	}
-	compactSearch := m.search && m.width < 50
+	compactSearch := (m.search || m.filterLocal) && m.width < 50
 	if !compactSearch {
 		canvas.text(2, y, 1, iconBack, back, colTop)
 		canvas.text(4, y, 1, iconForward, forward, colTop)
@@ -110,6 +110,11 @@ func (m *model) drawTopbar(canvas *Canvas) {
 		canvas.fillRect(7, y, m.width-22, 1, colSearchBG)
 		canvas.text(7, y, 1, iconSearch, colMuted, colSearchBG)
 		canvas.text(9, y, 8, "Search: ", colFaint, colSearchBG)
+		canvas.text(17, y, m.width-33, m.filter, colText, colSearchBG)
+	} else if m.filterLocal {
+		canvas.fillRect(7, y, m.width-22, 1, colSearchBG)
+		canvas.text(7, y, 1, iconSearch, colMuted, colSearchBG)
+		canvas.text(9, y, 8, "Filter: ", colFaint, colSearchBG)
 		canvas.text(17, y, m.width-33, m.filter, colText, colSearchBG)
 	} else {
 		x := 7
@@ -150,7 +155,7 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	}
 
 	searchColor := colMuted
-	if m.search {
+	if m.search || m.filterLocal {
 		searchColor = colAccent
 	}
 	hiddenColor := colMuted
@@ -354,11 +359,14 @@ func (m *model) drawCompactGallery(canvas *Canvas) {
 
 func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
 	entry := m.entries[index]
-	selected := index == m.selected
+	highlighted := m.isSelected(index)
+	cursor := index == m.selected
 	background := colBG
 	foreground := colText
-	if selected {
+	if highlighted {
 		background = colSelected
+	} else if cursor {
+		background = colHover
 	}
 	canvas.fillRect(x, y, width, 1, background)
 	iconX := x
@@ -392,13 +400,18 @@ func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
 
 func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
 	entry := m.entries[index]
-	selected := index == m.selected
+	highlighted := m.isSelected(index)
+	cursor := index == m.selected
 	border := colBG
 	fill := colBG
 	labelColor := colMuted
-	if selected {
+	if highlighted {
 		border = colSelected
 		fill = colSelected
+		labelColor = colText
+	} else if cursor {
+		border = colHover
+		fill = colHover
 		labelColor = colText
 	}
 	labelBG := fill
@@ -532,6 +545,13 @@ func (m *model) drawStatus(canvas *Canvas) {
 	} else if shown != total {
 		label = fmt.Sprintf("%d of %d items", shown, total)
 	}
+	if len(m.selection) > 0 {
+		if len(m.selection) == 1 {
+			label = "1 selected"
+		} else {
+			label = fmt.Sprintf("%d selected", len(m.selection))
+		}
+	}
 	canvas.text(2, y, m.width-4, label, colSidebarText, colStatus)
 
 	disk := fmt.Sprintf("%s · %s free", m.fsType, humanBytes(m.free))
@@ -547,6 +567,8 @@ func (m *model) drawStatus(canvas *Canvas) {
 func (m *model) helpRows() [][2]string {
 	rows := [][2]string{
 		{"← ↑ ↓ →  hjkl", "move around"},
+		{"shift+arrows", "extend selection"},
+		{"t / ctrl+a", "toggle / select all"},
 		{"enter", "open folder or file"},
 		{"double click", "open"},
 		{"backspace", "parent folder"},
@@ -554,12 +576,14 @@ func (m *model) helpRows() [][2]string {
 		{"~", "home"},
 		{".", "show or hide dotfiles"},
 		{"/ or ctrl+f", "search this folder tree"},
+		{"f", "filter this folder"},
 		{"c / x / v", "copy / cut / paste"},
 		{"F2", "rename"},
 		{"n", "new folder"},
 		{"Del", "move to trash"},
-		{"space", "preview image"},
+		{"space", "preview image or text"},
 		{"m / right click", "file actions"},
+		{"o", "reverse sort"},
 		{"tab", "jump to the sidebar"},
 		{"r", "refresh"},
 		{"s / ctrl+,", "settings and theme"},

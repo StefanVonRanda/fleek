@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -22,8 +23,10 @@ func (m *model) beginSearch() tea.Cmd {
 	m.searchResults = false
 	m.searching = false
 	m.searchTruncated = false
+	m.filterLocal = false
 	m.filter = ""
 	m.searchToken++
+	m.clearSelection()
 	m.entries = m.all
 	m.selected = 0
 	m.scroll = 0
@@ -39,11 +42,108 @@ func (m *model) closeSearch() tea.Cmd {
 	m.searchTruncated = false
 	m.filter = ""
 	m.searchToken++
+	m.clearSelection()
 	m.entries = m.all
 	m.selected = 0
 	m.scroll = 0
 	m.ensureVisible()
 	return m.thumbCmds()
+}
+
+func (m *model) beginLocalFilter() tea.Cmd {
+	m.filterLocal = true
+	m.search = false
+	m.searchResults = false
+	m.searching = false
+	m.filter = ""
+	m.clearSelection()
+	m.entries = m.all
+	m.selected = 0
+	m.scroll = 0
+	m.focus = focusGrid
+	m.ensureVisible()
+	return m.thumbCmds()
+}
+
+func (m *model) closeLocalFilter() tea.Cmd {
+	m.filterLocal = false
+	m.filter = ""
+	m.clearSelection()
+	m.entries = m.all
+	m.selected = 0
+	m.scroll = 0
+	m.ensureVisible()
+	return m.thumbCmds()
+}
+
+func (m *model) applyLocalFilter() tea.Cmd {
+	if m.filter == "" {
+		m.entries = m.all
+	} else {
+		needle := strings.ToLower(m.filter)
+		filtered := make([]Entry, 0, len(m.all))
+		for _, entry := range m.all {
+			if strings.Contains(strings.ToLower(entry.Name), needle) {
+				filtered = append(filtered, entry)
+			}
+		}
+		m.entries = filtered
+	}
+	m.clearSelection()
+	m.selected = 0
+	m.scroll = 0
+	m.ensureVisible()
+	return m.thumbCmds()
+}
+
+func (m *model) handleFilterKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "esc":
+		return m, m.closeLocalFilter()
+	case "enter":
+		entry := m.selectedEntry()
+		if entry == nil {
+			return m, nil
+		}
+		target := *entry
+		m.closeLocalFilter()
+		if target.IsDir {
+			return m, m.loadDir(target.Path, true, "")
+		}
+		if err := launch(target.Path); err != nil {
+			m.notice = err.Error()
+		}
+		return m, nil
+	case "backspace":
+		if m.filter != "" {
+			_, size := utf8.DecodeLastRuneInString(m.filter)
+			m.filter = m.filter[:len(m.filter)-size]
+		}
+		return m, m.applyLocalFilter()
+	case "ctrl+u":
+		m.filter = ""
+		return m, m.applyLocalFilter()
+	case "up":
+		m.moveSelection(-m.gridCols())
+	case "down":
+		m.moveSelection(m.gridCols())
+	case "left":
+		m.moveSelection(-1)
+	case "right":
+		m.moveSelection(1)
+	case "pgup", "pageup":
+		m.moveSelection(-m.visibleRows() * m.gridCols())
+	case "pgdown", "pagedown":
+		m.moveSelection(m.visibleRows() * m.gridCols())
+	default:
+		if text := msg.Key().Text; text != "" && len(m.filter) < 120 {
+			m.filter += text
+			return m, m.applyLocalFilter()
+		}
+	}
+	m.ensureVisible()
+	return m, m.thumbCmds()
 }
 
 func (m *model) queueSearch() tea.Cmd {
@@ -83,6 +183,7 @@ func (m *model) handleSearchMsg(msg searchMsg) (tea.Model, tea.Cmd) {
 	}
 	m.searchResults = true
 	m.searchTruncated = msg.truncated
+	m.clearSelection()
 	m.entries = msg.results
 	m.selected = 0
 	m.scroll = 0

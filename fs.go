@@ -28,8 +28,9 @@ type Entry struct {
 var extKinds = map[string]string{}
 
 var (
-	sortMode  = "name"
-	dirsFirst = true
+	sortMode    = "name"
+	sortReverse = false
+	dirsFirst   = true
 )
 
 func init() {
@@ -124,18 +125,38 @@ func sortEntries(entries []Entry) {
 		if dirsFirst && left.IsDir != right.IsDir {
 			return left.IsDir
 		}
-		switch sortMode {
-		case "size":
-			if left.Size != right.Size {
-				return left.Size > right.Size
-			}
-		case "modified":
-			if !left.ModTime.Equal(right.ModTime) {
-				return left.ModTime.After(right.ModTime)
-			}
+		order := compareEntries(left, right)
+		if sortReverse {
+			return order > 0
 		}
-		return naturalLess(left.Name, right.Name)
+		return order < 0
 	})
+}
+
+func compareEntries(left, right Entry) int {
+	switch sortMode {
+	case "size":
+		if left.Size != right.Size {
+			if left.Size > right.Size {
+				return -1
+			}
+			return 1
+		}
+	case "modified":
+		if !left.ModTime.Equal(right.ModTime) {
+			if left.ModTime.After(right.ModTime) {
+				return -1
+			}
+			return 1
+		}
+	}
+	if naturalLess(left.Name, right.Name) {
+		return -1
+	}
+	if naturalLess(right.Name, left.Name) {
+		return 1
+	}
+	return 0
 }
 
 var naturalChunks = regexp.MustCompile(`\d+|[^\d]+`)

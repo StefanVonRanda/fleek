@@ -27,6 +27,7 @@ search_background = "#313244"
 show_hidden = false
 # name, size, or modified
 sort = "name"
+sort_reverse = false
 directories_first = true
 
 [layout]

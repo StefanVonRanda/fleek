@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -11,16 +12,29 @@ import (
 )
 
 func (m *model) setClipboard(cut bool) tea.Cmd {
-	entry := m.selectedEntry()
-	if entry == nil {
+	paths := m.selectedPaths()
+	if len(paths) == 0 {
 		m.notice = "Nothing selected"
 		return nil
 	}
-	m.clipboard = fileClipboard{paths: []string{entry.Path}, cut: cut}
+	m.clipboard = fileClipboard{paths: paths, cut: cut}
+	if len(paths) == 1 {
+		entry := m.selectedEntry()
+		name := filepath.Base(paths[0])
+		if entry != nil {
+			name = entry.Name
+		}
+		if cut {
+			m.notice = "Cut " + name
+		} else {
+			m.notice = "Copied " + name
+		}
+		return nil
+	}
 	if cut {
-		m.notice = "Cut " + entry.Name
+		m.notice = fmt.Sprintf("Cut %d items", len(paths))
 	} else {
-		m.notice = "Copied " + entry.Name
+		m.notice = fmt.Sprintf("Copied %d items", len(paths))
 	}
 	return nil
 }
@@ -43,28 +57,74 @@ func (m *model) pasteClipboard() tea.Cmd {
 }
 
 func (m *model) confirmTrash(entry *Entry) {
-	if entry == nil {
+	paths := m.selectedPaths()
+	if len(paths) == 0 {
 		return
+	}
+	message := ""
+	if len(paths) == 1 && entry != nil {
+		message = entry.Name
+	} else {
+		message = fmt.Sprintf("%d items", len(paths))
+	}
+	action := "trash"
+	title := "Move to Trash"
+	if inTrash(m.cwd) {
+		action = "delete"
+		title = "Delete Permanently"
 	}
 	m.menu = nil
 	m.dialog = &dialogState{
 		kind:    "confirm",
-		action:  "trash",
-		title:   "Move to Trash",
-		message: entry.Name,
-		target:  entry.Path,
+		action:  action,
+		title:   title,
+		message: message,
+		target:  paths[0],
+		paths:   paths,
 	}
 }
 
-func (m *model) trashPath(path string) tea.Cmd {
-	if m.busy {
+func (m *model) trashPaths(paths []string) tea.Cmd {
+	if m.busy || len(paths) == 0 {
 		return nil
 	}
 	m.busy = true
-	m.notice = "Moving to Trash…"
+	if len(paths) == 1 {
+		m.notice = "Moving to Trash…"
+	} else {
+		m.notice = fmt.Sprintf("Moving %d items to Trash…", len(paths))
+	}
 	return func() tea.Msg {
-		err := trashEntry(path)
-		return opMsg{notice: "Moved to Trash", err: err}
+		for _, path := range paths {
+			if err := trashEntry(path); err != nil {
+				return opMsg{notice: "Moved to Trash", err: err}
+			}
+		}
+		notice := "Moved to Trash"
+		if len(paths) > 1 {
+			notice = fmt.Sprintf("Moved %d items to Trash", len(paths))
+		}
+		return opMsg{notice: notice}
+	}
+}
+
+func (m *model) deletePaths(paths []string) tea.Cmd {
+	if m.busy || len(paths) == 0 {
+		return nil
+	}
+	m.busy = true
+	m.notice = "Deleting…"
+	return func() tea.Msg {
+		for _, path := range paths {
+			if err := os.RemoveAll(path); err != nil {
+				return opMsg{notice: "Deleted", err: err}
+			}
+		}
+		notice := "Deleted"
+		if len(paths) > 1 {
+			notice = fmt.Sprintf("Deleted %d items", len(paths))
+		}
+		return opMsg{notice: notice}
 	}
 }
 
@@ -100,6 +160,15 @@ func (m *model) openPreview(entry Entry) tea.Cmd {
 	m.menu = nil
 	m.dialog = nil
 	m.help = false
+	if textPreviewable(entry) {
+		lines, err := readTextPreview(entry.Path)
+		if err != nil {
+			m.notice = "Preview failed"
+			return nil
+		}
+		m.preview = &previewState{entry: entry, text: lines, textMode: true}
+		return nil
+	}
 	m.previewSeq++
 	token := m.previewSeq
 	var deleteRaw string
@@ -201,6 +270,23 @@ func (m *model) previewBrowse(delta int) tea.Cmd {
 }
 
 func (m *model) handlePreviewKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.preview != nil && m.preview.textMode {
+		switch msg.String() {
+		case "esc", "q", " ", "space":
+			return m.closePreview()
+		case "up", "k":
+			m.preview.textOffset--
+		case "down", "j":
+			m.preview.textOffset++
+		case "pgup":
+			m.preview.textOffset -= m.height - 2
+		case "pgdown":
+			m.preview.textOffset += m.height - 2
+		case "home":
+			m.preview.textOffset = 0
+		}
+		return nil
+	}
 	switch msg.String() {
 	case "esc", "q", " ", "space":
 		return m.closePreview()
@@ -240,12 +326,16 @@ func (m *model) openMenuAt(x, y int) {
 	}
 	var target *Entry
 	if index >= 0 {
-		m.setSelected(index)
-		m.ensureVisible()
 		entry := m.entries[index]
+		if len(m.selection) == 0 || !m.selection[entry.Path] {
+			m.clearSelection()
+			m.setSelected(index)
+			m.anchor = index
+		}
+		m.ensureVisible()
 		target = &entry
 	}
-	items := m.menuItemsFor(target)
+	items := m.menuItemsFor(target, false)
 	cursor := 0
 	for cursor < len(items) && (items[cursor].separator || !items[cursor].enabled) {
 		cursor++
@@ -256,35 +346,100 @@ func (m *model) openMenuAt(x, y int) {
 	m.menu = &contextMenu{x: x, y: y, target: target, items: items, cursor: cursor}
 }
 
-func (m *model) menuItemsFor(target *Entry) []menuItem {
+func (m *model) menuItemsFor(target *Entry, advanced bool) []menuItem {
 	var items []menuItem
-	if target != nil {
-		items = append(items, menuItem{label: "Open", shortcut: "enter", action: "open", enabled: true})
-		if previewable(*target) {
-			items = append(items, menuItem{label: "Preview", shortcut: "space", action: "preview", enabled: true})
-		}
-		if target.IsDir {
-			switch {
-			case m.placeConfigIndex(target.Path) >= 0:
-				items = append(items, menuItem{label: "Remove from sidebar", action: "unbookmark", enabled: true})
-			case m.sidebarHasPath(target.Path):
-				items = append(items, menuItem{label: "Already in sidebar", enabled: false})
-			default:
-				items = append(items, menuItem{label: "Add to sidebar", action: "bookmark", enabled: true})
+	count := m.selectionCount()
+	bulk := len(m.selection) > 1
+	if !advanced {
+		if target != nil {
+			items = append(items, menuItem{label: "Open", shortcut: "enter", action: "open", enabled: !bulk})
+			if previewable(*target) {
+				items = append(items, menuItem{label: "Preview", shortcut: "space", action: "preview", enabled: !bulk})
 			}
+			if target.IsDir && !bulk {
+				switch {
+				case m.placeConfigIndex(target.Path) >= 0:
+					items = append(items, menuItem{label: "Remove from sidebar", action: "unbookmark", enabled: true})
+				case m.sidebarHasPath(target.Path):
+					items = append(items, menuItem{label: "Already in sidebar", enabled: false})
+				default:
+					items = append(items, menuItem{label: "Add to sidebar", action: "bookmark", enabled: true})
+				}
+			}
+			copyLabel := "Copy"
+			cutLabel := "Cut"
+			trashLabel := "Move to Trash"
+			if inTrash(m.cwd) {
+				trashLabel = "Delete permanently"
+			}
+			if bulk {
+				copyLabel = fmt.Sprintf("Copy %d items", count)
+				cutLabel = fmt.Sprintf("Cut %d items", count)
+				trashLabel = fmt.Sprintf("Move %d to Trash", count)
+				if inTrash(m.cwd) {
+					trashLabel = fmt.Sprintf("Delete %d permanently", count)
+				}
+			}
+			items = append(items,
+				menuItem{label: copyLabel, shortcut: "c", action: "copy", enabled: true},
+				menuItem{label: cutLabel, shortcut: "x", action: "cut", enabled: true},
+				menuItem{label: "Rename", shortcut: "F2", action: "rename", enabled: !bulk},
+				menuItem{label: trashLabel, shortcut: "Del", action: "trash", enabled: true},
+				menuItem{separator: true},
+			)
 		}
 		items = append(items,
-			menuItem{label: "Copy", shortcut: "c", action: "copy", enabled: true},
-			menuItem{label: "Cut", shortcut: "x", action: "cut", enabled: true},
-			menuItem{label: "Rename", shortcut: "F2", action: "rename", enabled: true},
-			menuItem{label: "Move to Trash", shortcut: "Del", action: "trash", enabled: true},
+			menuItem{label: "New folder", shortcut: "n", action: "mkdir", enabled: true},
+			menuItem{label: "Paste", shortcut: "v", action: "paste", enabled: len(m.clipboard.paths) > 0 && !m.busy},
+			menuItem{label: "Refresh", shortcut: "r", action: "refresh", enabled: true},
 			menuItem{separator: true},
+			menuItem{label: "More…", action: "more", enabled: true},
 		)
+		return items
+	}
+
+	if target != nil {
+		if inTrash(m.cwd) {
+			label := "Restore"
+			if bulk {
+				label = fmt.Sprintf("Restore %d items", count)
+			}
+			items = append(items, menuItem{label: label, action: "restore", enabled: true})
+		}
+		compressLabel := "Compress…"
+		if bulk {
+			compressLabel = fmt.Sprintf("Compress %d items…", count)
+		}
+		items = append(items, menuItem{label: compressLabel, action: "compress", enabled: true})
+		if !bulk && isArchive(target.Name) {
+			items = append(items, menuItem{label: "Extract to folder", action: "extract", enabled: true})
+		}
+		items = append(items, menuItem{separator: true})
+		if !bulk {
+			items = append(items,
+				menuItem{label: "Duplicate", action: "duplicate", enabled: true},
+				menuItem{label: "Copy path", action: "copypath", enabled: true},
+				menuItem{label: "Open with…", action: "openwith", enabled: true},
+				menuItem{label: "New symlink", action: "symlink", enabled: true},
+				menuItem{label: "Properties", action: "properties", enabled: true},
+			)
+		}
 	}
 	items = append(items,
-		menuItem{label: "New folder", shortcut: "n", action: "mkdir", enabled: true},
-		menuItem{label: "Paste", shortcut: "v", action: "paste", enabled: len(m.clipboard.paths) > 0 && !m.busy},
-		menuItem{label: "Refresh", shortcut: "r", action: "refresh", enabled: true},
+		menuItem{label: "New file", action: "mkfile", enabled: true},
+		menuItem{label: "Open terminal here", action: "terminal", enabled: true},
+		menuItem{separator: true},
+		menuItem{label: "Sort by name", action: "sort_name", enabled: true},
+		menuItem{label: "Sort by size", action: "sort_size", enabled: true},
+		menuItem{label: "Sort by modified", action: "sort_modified", enabled: true},
+		menuItem{label: "Reverse sort", action: "sort_reverse", enabled: true},
+	)
+	if inTrash(m.cwd) {
+		items = append(items, menuItem{label: "Empty Trash", action: "emptytrash", enabled: true})
+	}
+	items = append(items,
+		menuItem{separator: true},
+		menuItem{label: "← Back", action: "back", enabled: true},
 	)
 	return items
 }
@@ -379,6 +534,18 @@ func (m *model) runMenuAction(action string) tea.Cmd {
 		return nil
 	}
 	target := menu.target
+	if action == "more" || action == "back" {
+		m.menu.items = m.menuItemsFor(target, action == "more")
+		m.menu.cursor = 0
+		for m.menu.cursor < len(m.menu.items) && (m.menu.items[m.menu.cursor].separator || !m.menu.items[m.menu.cursor].enabled) {
+			m.menu.cursor++
+		}
+		if m.menu.cursor >= len(m.menu.items) {
+			m.menu.cursor = 0
+		}
+		m.menu.hits = nil
+		return nil
+	}
 	m.menu = nil
 	switch action {
 	case "open":
@@ -410,6 +577,46 @@ func (m *model) runMenuAction(action string) tea.Cmd {
 		return m.addBookmark(target)
 	case "unbookmark":
 		return m.removeBookmark(target)
+	case "compress":
+		m.startCompress()
+	case "extract":
+		if target != nil {
+			return m.extractCmd(target.Path)
+		}
+	case "restore":
+		return m.restoreSelected()
+	case "emptytrash":
+		m.confirmEmptyTrash()
+	case "duplicate":
+		return m.duplicateSelected()
+	case "copypath":
+		return m.copyPath()
+	case "openwith":
+		m.startOpenWith(target)
+	case "symlink":
+		m.startNewSymlink(target)
+	case "properties":
+		m.startProperties(target)
+	case "terminal":
+		return m.openTerminal()
+	case "mkfile":
+		m.startNewFile()
+	case "sort_name":
+		sortMode = "name"
+		appConfig.Behavior.Sort = "name"
+		return m.reload()
+	case "sort_size":
+		sortMode = "size"
+		appConfig.Behavior.Sort = "size"
+		return m.reload()
+	case "sort_modified":
+		sortMode = "modified"
+		appConfig.Behavior.Sort = "modified"
+		return m.reload()
+	case "sort_reverse":
+		sortReverse = !sortReverse
+		appConfig.Behavior.SortReverse = sortReverse
+		return m.reload()
 	}
 	return nil
 }
@@ -494,14 +701,37 @@ func (m *model) handleDialogKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	key := msg.String()
+	if dialog.kind == "info" {
+		switch key {
+		case "esc", "enter", "q":
+			m.dialog = nil
+		}
+		return nil
+	}
 	if dialog.kind == "confirm" {
 		switch key {
 		case "esc", "n", "q":
 			m.dialog = nil
 		case "enter", "y":
-			path := dialog.target
-			m.dialog = nil
-			return m.trashPath(path)
+			switch dialog.action {
+			case "emptytrash":
+				m.dialog = nil
+				return m.emptyTrashCmd()
+			case "delete":
+				paths := dialog.paths
+				if len(paths) == 0 && dialog.target != "" {
+					paths = []string{dialog.target}
+				}
+				m.dialog = nil
+				return m.deletePaths(paths)
+			default:
+				paths := dialog.paths
+				if len(paths) == 0 && dialog.target != "" {
+					paths = []string{dialog.target}
+				}
+				m.dialog = nil
+				return m.trashPaths(paths)
+			}
 		}
 		return nil
 	}
@@ -552,8 +782,12 @@ func (m *model) applyDialog() tea.Cmd {
 	}
 	value := strings.TrimSpace(dialog.value)
 	if value == "" {
-		if dialog.action == "setting_color" {
+		switch dialog.action {
+		case "setting_color":
 			dialog.message = "Enter a hex color"
+			return nil
+		case "open_with":
+			dialog.message = "Enter a command"
 			return nil
 		}
 		m.notice = "Name cannot be empty"
@@ -578,6 +812,40 @@ func (m *model) applyDialog() tea.Cmd {
 		m.dialog = nil
 		m.notice = "Created " + filepath.Base(target)
 		return m.reloadSelect(target)
+	case "mkfile":
+		target, err := makeFile(dialog.target, value)
+		if err != nil {
+			m.notice = fmt.Sprintf("Could not create file: %v", err)
+			return nil
+		}
+		m.dialog = nil
+		m.notice = "Created " + filepath.Base(target)
+		return m.reloadSelect(target)
+	case "symlink":
+		target, err := makeSymlink(m.cwd, value, dialog.target)
+		if err != nil {
+			m.notice = fmt.Sprintf("Could not create symlink: %v", err)
+			return nil
+		}
+		m.dialog = nil
+		m.notice = "Created " + filepath.Base(target)
+		return m.reloadSelect(target)
+	case "compress":
+		paths := dialog.paths
+		if len(paths) == 0 {
+			paths = m.selectedPaths()
+		}
+		m.dialog = nil
+		return m.compressCmd(paths, filepath.Join(m.cwd, value))
+	case "open_with":
+		target := dialog.target
+		m.dialog = nil
+		if err := launchWith(value, target); err != nil {
+			m.notice = err.Error()
+			return nil
+		}
+		m.notice = "Opened with " + strings.Fields(value)[0]
+		return nil
 	case "setting_color":
 		if !m.applySettingColor(dialog.target, value) {
 			dialog.message = "Use #rgb or #rrggbb"
@@ -609,6 +877,8 @@ func (m *model) reloadSelect(selectPath string) tea.Cmd {
 	if m.cwd == "" {
 		return nil
 	}
+	m.clearSelection()
+	m.filterLocal = false
 	entries, err := scanDir(m.cwd, m.hidden)
 	if err != nil {
 		m.notice = "Could not refresh this folder"
@@ -692,6 +962,38 @@ func (m *model) drawDialog(canvas *Canvas) {
 	if m.dialog == nil {
 		return
 	}
+	if m.dialog.kind == "info" {
+		width := 64
+		if width > m.width-2 {
+			width = m.width - 2
+		}
+		if width < 24 {
+			width = 24
+		}
+		height := len(m.dialog.lines) + 4
+		if height > m.height-2 {
+			height = m.height - 2
+		}
+		if height < 6 {
+			height = 6
+		}
+		x := (m.width - width) / 2
+		y := (m.height - height) / 2
+		canvas.dimOutside(x, y, width, height)
+		canvas.fillRect(x, y, width, height, colPanel)
+		canvas.box(x, y, width, height, colAccent, colPanel)
+		canvas.text(x+2, y+1, width-4, m.dialog.title, colText, colPanel)
+		available := height - 4
+		for index, line := range m.dialog.lines {
+			if index >= available {
+				break
+			}
+			canvas.text(x+2, y+2+index, width-4, line, colText, colPanel)
+		}
+		canvas.centerText(x+2, y+height-2, width-4, "esc close", colFaint, colPanel)
+		m.cursorPosX = -1
+		return
+	}
 	width := 56
 	if width > m.width-4 {
 		width = m.width - 4
@@ -716,8 +1018,17 @@ func (m *model) drawDialog(canvas *Canvas) {
 		shown = value
 	}
 	placeholder := "new name"
-	if m.dialog.action == "setting_color" {
+	switch m.dialog.action {
+	case "setting_color":
 		placeholder = "#rrggbb"
+	case "open_with":
+		placeholder = "command"
+	case "mkfile":
+		placeholder = "file name"
+	case "compress":
+		placeholder = "archive.zip"
+	case "symlink":
+		placeholder = "link name"
 	}
 	if shown == "" {
 		canvas.text(x+3, y+3, width-6, placeholder, colFaint, colSearchBG)
@@ -746,7 +1057,29 @@ func (m *model) drawPreview(canvas *Canvas) {
 	canvas.fillRect(0, 0, m.width, m.height, hexRGB("#0d0c14"))
 	canvas.text(2, 0, m.width-4, truncateText(m.preview.entry.Name, m.width-4), colMuted, hexRGB("#0d0c14"))
 	footer := "← → browse   ·   esc close"
+	if m.preview.textMode {
+		footer = "↑↓ scroll   ·   esc close"
+	}
 	canvas.centerText(0, m.height-1, m.width, footer, colFaint, hexRGB("#0d0c14"))
+	if m.preview.textMode {
+		background := hexRGB("#0d0c14")
+		rows := m.height - 2
+		maxOffset := len(m.preview.text) - rows
+		if maxOffset < 0 {
+			maxOffset = 0
+		}
+		if m.preview.textOffset > maxOffset {
+			m.preview.textOffset = maxOffset
+		}
+		if m.preview.textOffset < 0 {
+			m.preview.textOffset = 0
+		}
+		for index := 0; index < rows && m.preview.textOffset+index < len(m.preview.text); index++ {
+			line := m.preview.text[m.preview.textOffset+index]
+			canvas.text(2, 1+index, m.width-4, truncateText(line, m.width-4), colText, background)
+		}
+		return
+	}
 	if m.preview.loading {
 		canvas.centerText(0, m.height/2, m.width, "Loading preview…", colMuted, hexRGB("#0d0c14"))
 		return

@@ -52,12 +52,17 @@ list.
 - Nerd Font folder tiles and file-type icons
 - Places sidebar with mounted filesystems and free space
 - Right-click a folder to add it to the sidebar, or remove it again
+- Multi-select with shift/ctrl-click, shift+arrows or `ctrl+a`
 - Responsive grid on desktop, compact list on phones
 - Selection borders, breadcrumbs and navigation history
 - Recursive search across the current tree (`/`)
+- Type-to-filter the current folder (`f`)
 - Copy, cut, paste, rename, trash and new-folder actions
-- Right-click context menu, plus keyboard equivalents
-- Full-screen viewer with arrow-key browsing
+- Zip and tar.gz compress/extract from the context menu
+- Restore or empty the Trash
+- File properties, copy path, open with, duplicate and symlink actions
+- Right-click context menu with an advanced actions page
+- Full-screen image, video, PDF and text viewer
 - Lazy thumbnail loading and a disk cache
 - Kitty graphics for Ghostty/Kitty/WezTerm, with a half-block fallback
 - Catppuccin Mocha palette by default
@@ -106,19 +111,25 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | Key | Action |
 | --- | --- |
 | `←` `↑` `↓` `→`, `hjkl` | move in the grid or list |
+| `shift+click` / `ctrl+click` | select a range / toggle selection |
+| `shift+arrows` | extend selection |
+| `ctrl+a` | select all |
+| `t` | toggle selection at the cursor |
 | `enter` / double-click | open folder or file |
 | double-click image | full-screen viewer |
-| `space` | preview selected image |
+| `space` | preview image, video, PDF or text |
 | `c` / `x` / `v` | copy / cut / paste |
 | `F2` | rename |
 | `n` | new folder |
 | `Del` | move to trash |
-| `m` / right-click | file actions menu |
+| `m` / right-click | actions menu (`More…` for advanced actions) |
 | `backspace` | parent folder |
 | `alt+←` / `alt+→` | back / forward |
 | `~` | home |
 | `.` | show or hide dotfiles |
 | `/` or `ctrl+f` | recursive search |
+| `f` | filter the current folder |
+| `o` | reverse sort |
 | `tab` | jump between the grid and sidebar |
 | `r` | refresh |
 | `s` / `ctrl+,` | settings and theme |
@@ -128,6 +139,9 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
 breadcrumbs and toolbar icons are clickable. Right-click a folder to add or
 remove it from the sidebar.
+
+The actions menu includes **More…** for archive, properties, copy path, open
+with, duplicate, symlink and terminal actions.
 
 Search results show paths relative to the current directory. `esc` closes search
 and restores the folder; `enter` opens the selected result.
@@ -160,6 +174,7 @@ text = "#cdd6f4"
 [behavior]
 show_hidden = false
 sort = "name"              # name, size, modified
+sort_reverse = false
 directories_first = true
 
 [layout]
@@ -233,9 +248,10 @@ Kitty graphics show.
 
 ## Current limitations
 
-- File operations act on a single selection; multi-select is not implemented yet.
 - Linux is the supported platform for mount and font discovery.
 - Sixel is not supported.
+- Tabs, split panes, drag-and-drop and mounting/ejecting are not implemented yet.
+- Batch rename and chmod/ownership changes are not implemented yet.
 - Video and PDF thumbnails require the optional external tools above.
 
 ## License

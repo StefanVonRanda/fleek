@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/disintegration/imaging"
 	"golang.org/x/sys/unix"
@@ -33,8 +35,37 @@ func previewable(entry Entry) bool {
 		return entry.Ext != "svg"
 	case "video", "pdf":
 		return true
+	case "text", "code", "config":
+		return true
 	}
 	return false
+}
+
+func textPreviewable(entry Entry) bool {
+	switch entry.Kind {
+	case "text", "code", "config":
+		return true
+	}
+	return false
+}
+
+func readTextPreview(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	content, err := io.ReadAll(io.LimitReader(file, 2<<20))
+	if err != nil {
+		return nil, err
+	}
+	text := strings.ToValidUTF8(string(content), "�")
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+	if len(lines) > 20000 {
+		lines = lines[:20000]
+	}
+	return lines, nil
 }
 
 func cellPixels() (int, int) {

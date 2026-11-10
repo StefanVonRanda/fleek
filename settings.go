@@ -103,6 +103,7 @@ func settingRows() []settingRow {
 	}
 	addChoice("Sort", &appConfig.Behavior.Sort, []string{"name", "size", "modified"}, true)
 	addToggle("Folders first", &appConfig.Behavior.DirectoriesFirst)
+	addToggle("Reverse sort", &appConfig.Behavior.SortReverse)
 
 	rows = append(rows, settingRow{label: "LAYOUT", kind: settingHeader})
 	addNumber := func(label string, value *int, minimum, maximum int) {
