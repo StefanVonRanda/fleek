@@ -53,14 +53,16 @@ list.
 - Places sidebar with mounted filesystems and free space
 - Right-click a folder to add it to the sidebar, or remove it again
 - Multi-select with shift/ctrl-click, shift+arrows or `ctrl+a`
+- Tabs with independent directory, history, selection and scroll
 - Responsive grid on desktop, compact list on phones
 - Selection borders, breadcrumbs and navigation history
 - Recursive search across the current tree (`/`)
 - Type-to-filter the current folder (`f`)
 - Copy, cut, paste, rename, trash and new-folder actions
 - Zip and tar.gz compress/extract from the context menu
+- Batch rename with `{name}`, `{ext}` and `{n}`
 - Restore or empty the Trash
-- File properties, copy path, open with, duplicate and symlink actions
+- File properties, permissions, ownership, copy path, open with, duplicate and symlink actions
 - Right-click context menu with an advanced actions page
 - Full-screen image, video, PDF and text viewer
 - Lazy thumbnail loading and a disk cache
@@ -115,11 +117,14 @@ Pass a directory to open it, or a file to open its parent with that file selecte
 | `shift+arrows` | extend selection |
 | `ctrl+a` | select all |
 | `t` | toggle selection at the cursor |
+| `ctrl+t` / `ctrl+w` | new tab / close tab |
+| `ctrl+tab` or `[` / `]` | switch tabs |
 | `enter` / double-click | open folder or file |
 | double-click image | full-screen viewer |
 | `space` | preview image, video, PDF or text |
 | `c` / `x` / `v` | copy / cut / paste |
 | `F2` | rename |
+| `R` | batch rename selected items |
 | `n` | new folder |
 | `Del` | move to trash |
 | `m` / right-click | actions menu (`More…` for advanced actions) |
@@ -140,8 +145,9 @@ Mouse clicks select; double-click opens. The wheel scrolls. Sidebar places,
 breadcrumbs and toolbar icons are clickable. Right-click a folder to add or
 remove it from the sidebar.
 
-The actions menu includes **More…** for archive, properties, copy path, open
-with, duplicate, symlink and terminal actions.
+The actions menu includes **More…** for archive, batch rename, properties,
+permissions, ownership, copy path, open with, duplicate, symlink and terminal
+actions.
 
 Search results show paths relative to the current directory. `esc` closes search
 and restores the folder; `enter` opens the selected result.
@@ -250,8 +256,8 @@ Kitty graphics show.
 
 - Linux is the supported platform for mount and font discovery.
 - Sixel is not supported.
-- Tabs, split panes, drag-and-drop and mounting/ejecting are not implemented yet.
-- Batch rename and chmod/ownership changes are not implemented yet.
+- Split panes, drag-and-drop and mounting/ejecting are not implemented yet.
+- Overwrite/skip conflict prompts, operation progress/cancel and undo are not implemented yet.
 - Video and PDF thumbnails require the optional external tools above.
 
 ## License

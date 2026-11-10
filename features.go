@@ -317,6 +317,139 @@ func makeSymlink(dir, name, target string) (string, error) {
 	return link, nil
 }
 
+func (m *model) startChmod() {
+	paths := m.selectedPaths()
+	if len(paths) == 0 {
+		return
+	}
+	m.menu = nil
+	m.dialog = &dialogState{
+		kind:    "prompt",
+		action:  "chmod",
+		title:   "Permissions",
+		value:   "644",
+		paths:   paths,
+		replace: true,
+	}
+}
+
+func (m *model) startChown() {
+	paths := m.selectedPaths()
+	if len(paths) == 0 {
+		return
+	}
+	m.menu = nil
+	m.dialog = &dialogState{
+		kind:    "prompt",
+		action:  "chown",
+		title:   "Owner",
+		value:   "user:group",
+		paths:   paths,
+		replace: true,
+	}
+}
+
+func applyChmod(paths []string, value string) error {
+	number, err := strconv.ParseUint(strings.TrimPrefix(value, "0o"), 8, 32)
+	if err != nil {
+		return fmt.Errorf("use an octal mode like 644")
+	}
+	for _, path := range paths {
+		if err := os.Chmod(path, os.FileMode(number)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyChown(paths []string, value string) error {
+	parts := strings.SplitN(value, ":", 2)
+	uid, err := resolveUser(parts[0])
+	if err != nil {
+		return err
+	}
+	gid := -1
+	if len(parts) == 2 && parts[1] != "" {
+		gid, err = resolveGroup(parts[1])
+		if err != nil {
+			return err
+		}
+	}
+	for _, path := range paths {
+		if err := os.Chown(path, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveUser(value string) (int, error) {
+	if number, err := strconv.Atoi(value); err == nil {
+		return number, nil
+	}
+	account, err := user.Lookup(value)
+	if err != nil {
+		return -1, fmt.Errorf("unknown user %s", value)
+	}
+	return strconv.Atoi(account.Uid)
+}
+
+func resolveGroup(value string) (int, error) {
+	if number, err := strconv.Atoi(value); err == nil {
+		return number, nil
+	}
+	group, err := user.LookupGroup(value)
+	if err != nil {
+		return -1, fmt.Errorf("unknown group %s", value)
+	}
+	return strconv.Atoi(group.Gid)
+}
+
+func (m *model) startBatchRename() {
+	paths := m.selectedPaths()
+	if len(paths) < 2 {
+		m.notice = "Select at least two items"
+		return
+	}
+	m.menu = nil
+	m.dialog = &dialogState{
+		kind:    "prompt",
+		action:  "batchrename",
+		title:   "Batch rename",
+		value:   "{name}{ext}",
+		paths:   paths,
+		replace: true,
+	}
+}
+
+func batchRename(paths []string, pattern string) (string, error) {
+	var first string
+	for index, path := range paths {
+		name := filepath.Base(path)
+		ext := filepath.Ext(name)
+		stem := strings.TrimSuffix(name, ext)
+		replacer := strings.NewReplacer("{name}", stem, "{ext}", ext, "{n}", strconv.Itoa(index+1))
+		newName := strings.TrimSpace(replacer.Replace(pattern))
+		if newName == "" || newName == "." || newName == ".." || strings.ContainsAny(newName, "/\\") {
+			return first, fmt.Errorf("invalid name %q", newName)
+		}
+		target := filepath.Join(filepath.Dir(path), newName)
+		if target == path {
+			continue
+		}
+		if _, err := os.Lstat(target); err == nil {
+			return first, fmt.Errorf("%s already exists", newName)
+		}
+		if err := os.Rename(path, target); err != nil {
+			return first, err
+		}
+		if first == "" {
+			first = target
+		}
+	}
+	return first, nil
+}
+
 func (m *model) startCompress() {
 	paths := m.selectedPaths()
 	if len(paths) == 0 {

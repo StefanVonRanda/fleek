@@ -99,6 +99,31 @@ type topHit struct {
 	action string
 }
 
+type tabHit struct {
+	x1, x2 int
+	index  int
+}
+
+type tabState struct {
+	cwd             string
+	all             []Entry
+	entries         []Entry
+	filter          string
+	filterLocal     bool
+	search          bool
+	searchResults   bool
+	searchTruncated bool
+	searchToken     int
+	selected        int
+	anchor          int
+	scroll          int
+	selection       map[string]bool
+	history         []string
+	historyIndex    int
+	fsType          string
+	free            uint64
+}
+
 type model struct {
 	width, height int
 	cwd           string
@@ -121,6 +146,8 @@ type model struct {
 	focus    focusPane
 
 	selection map[string]bool
+	tabs      []tabState
+	tabIndex  int
 
 	sideCursor int
 	help       bool
@@ -145,6 +172,7 @@ type model struct {
 	cardHits  []cardHit
 	crumbHits []crumbHit
 	topHits   []topHit
+	tabHits   []tabHit
 
 	lastClick      time.Time
 	lastClickIndex int
@@ -206,6 +234,7 @@ func (m *model) Init() tea.Cmd {
 		}
 		m.loadDir(fallback, false, "")
 	}
+	m.ensureTabs()
 	return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return startupMsg{} })
 }
 
@@ -318,6 +347,20 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.settings != nil {
 		return m, m.handleSettingsKey(msg)
 	}
+	switch key {
+	case "ctrl+t":
+		m.newTab()
+		return m, m.thumbCmds()
+	case "ctrl+w":
+		m.closeTab()
+		return m, m.thumbCmds()
+	case "ctrl+tab":
+		m.nextTab(1)
+		return m, m.thumbCmds()
+	case "ctrl+shift+tab":
+		m.nextTab(-1)
+		return m, m.thumbCmds()
+	}
 	if key == "ctrl+," {
 		m.openSettings()
 		return m, nil
@@ -374,6 +417,12 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.historyBack()
 	case "alt+right":
 		return m, m.historyForward()
+	case "]":
+		m.nextTab(1)
+		return m, m.thumbCmds()
+	case "[":
+		m.nextTab(-1)
+		return m, m.thumbCmds()
 	case "backspace":
 		return m, m.actionParent()
 	case "~":
@@ -437,6 +486,13 @@ func (m *model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.clearSelection()
 			m.setSelected(len(m.entries) - 1)
 		}
+	case "R":
+		if len(m.selection) > 1 {
+			m.startBatchRename()
+			return m, nil
+		}
+		m.notice = "Select at least two items"
+		return m, nil
 	case "enter":
 		return m, m.openSelected()
 	case " ", "space":
@@ -592,6 +648,9 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 	if mouse.Y >= topBarY && mouse.Y < topH {
 		for _, hit := range m.topHits {
+			if mouse.Y != topBarY {
+				break
+			}
 			if mouse.X >= hit.x1 && mouse.X <= hit.x2 {
 				switch hit.action {
 				case "back":
@@ -615,7 +674,20 @@ func (m *model) handleClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		for _, hit := range m.tabHits {
+			if mouse.Y == topBarY+1 && mouse.X >= hit.x1 && mouse.X <= hit.x2 {
+				if hit.index < 0 {
+					m.newTab()
+					return m, m.thumbCmds()
+				}
+				m.switchTab(hit.index)
+				return m, m.thumbCmds()
+			}
+		}
 		for _, hit := range m.crumbHits {
+			if mouse.Y != topBarY {
+				break
+			}
 			if mouse.X >= hit.x1 && mouse.X <= hit.x2 {
 				return m, m.loadDir(hit.path, true, "")
 			}

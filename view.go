@@ -56,6 +56,7 @@ func (m *model) renderCanvas() *Canvas {
 	m.sideHits = nil
 	m.crumbHits = nil
 	m.topHits = nil
+	m.tabHits = nil
 	canvas := NewCanvas(m.width, m.height)
 	if m.preview != nil {
 		m.drawPreview(canvas)
@@ -183,6 +184,35 @@ func (m *model) drawTopbar(canvas *Canvas) {
 			}
 			canvas.text(item.x, y, 1, item.icon, item.color, colTop)
 			m.topHits = append(m.topHits, topHit{item.x, item.x, item.action})
+		}
+	}
+
+	if len(m.tabs) > 1 {
+		x := 2
+		titleWidth := 16
+		if m.width < 60 {
+			titleWidth = 10
+		}
+		for index := range m.tabs {
+			label := fmt.Sprintf("%d %s", index+1, truncateText(m.tabTitle(index), titleWidth))
+			width := runewidth.StringWidth(label) + 2
+			if x+width >= m.width-4 {
+				break
+			}
+			background := colTop
+			foreground := colMuted
+			if index == m.tabIndex {
+				background = colSelected
+				foreground = colText
+			}
+			canvas.fillRect(x, y+1, width, 1, background)
+			canvas.text(x+1, y+1, width-2, label, foreground, background)
+			m.tabHits = append(m.tabHits, tabHit{x, x + width - 1, index})
+			x += width + 1
+		}
+		if x < m.width-2 {
+			canvas.text(x, y+1, 3, "+", colFaint, colTop)
+			m.tabHits = append(m.tabHits, tabHit{x, x + 1, -1})
 		}
 	}
 }
@@ -569,6 +599,8 @@ func (m *model) helpRows() [][2]string {
 		{"← ↑ ↓ →  hjkl", "move around"},
 		{"shift+arrows", "extend selection"},
 		{"t / ctrl+a", "toggle / select all"},
+		{"ctrl+t / ctrl+w", "new / close tab"},
+		{"ctrl+tab / [ ]", "switch tabs"},
 		{"enter", "open folder or file"},
 		{"double click", "open"},
 		{"backspace", "parent folder"},
@@ -579,6 +611,7 @@ func (m *model) helpRows() [][2]string {
 		{"f", "filter this folder"},
 		{"c / x / v", "copy / cut / paste"},
 		{"F2", "rename"},
+		{"R", "batch rename"},
 		{"n", "new folder"},
 		{"Del", "move to trash"},
 		{"space", "preview image or text"},

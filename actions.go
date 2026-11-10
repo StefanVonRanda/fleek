@@ -411,6 +411,9 @@ func (m *model) menuItemsFor(target *Entry, advanced bool) []menuItem {
 			compressLabel = fmt.Sprintf("Compress %d items…", count)
 		}
 		items = append(items, menuItem{label: compressLabel, action: "compress", enabled: true})
+		if bulk {
+			items = append(items, menuItem{label: "Batch rename…", action: "batchrename", enabled: true})
+		}
 		if !bulk && isArchive(target.Name) {
 			items = append(items, menuItem{label: "Extract to folder", action: "extract", enabled: true})
 		}
@@ -421,6 +424,8 @@ func (m *model) menuItemsFor(target *Entry, advanced bool) []menuItem {
 				menuItem{label: "Copy path", action: "copypath", enabled: true},
 				menuItem{label: "Open with…", action: "openwith", enabled: true},
 				menuItem{label: "New symlink", action: "symlink", enabled: true},
+				menuItem{label: "Permissions…", action: "chmod", enabled: true},
+				menuItem{label: "Owner…", action: "chown", enabled: true},
 				menuItem{label: "Properties", action: "properties", enabled: true},
 			)
 		}
@@ -579,6 +584,8 @@ func (m *model) runMenuAction(action string) tea.Cmd {
 		return m.removeBookmark(target)
 	case "compress":
 		m.startCompress()
+	case "batchrename":
+		m.startBatchRename()
 	case "extract":
 		if target != nil {
 			return m.extractCmd(target.Path)
@@ -595,6 +602,10 @@ func (m *model) runMenuAction(action string) tea.Cmd {
 		m.startOpenWith(target)
 	case "symlink":
 		m.startNewSymlink(target)
+	case "chmod":
+		m.startChmod()
+	case "chown":
+		m.startChown()
 	case "properties":
 		m.startProperties(target)
 	case "terminal":
@@ -830,6 +841,42 @@ func (m *model) applyDialog() tea.Cmd {
 		m.dialog = nil
 		m.notice = "Created " + filepath.Base(target)
 		return m.reloadSelect(target)
+	case "batchrename":
+		paths := dialog.paths
+		first, err := batchRename(paths, value)
+		if err != nil {
+			m.notice = err.Error()
+			return nil
+		}
+		m.dialog = nil
+		m.notice = fmt.Sprintf("Renamed %d items", len(paths))
+		return m.reloadSelect(first)
+	case "chmod":
+		paths := dialog.paths
+		if err := applyChmod(paths, value); err != nil {
+			m.notice = err.Error()
+			return nil
+		}
+		m.dialog = nil
+		if len(paths) == 1 {
+			m.notice = "Updated permissions"
+		} else {
+			m.notice = fmt.Sprintf("Updated permissions on %d items", len(paths))
+		}
+		return m.reloadSelect(m.selectedPath())
+	case "chown":
+		paths := dialog.paths
+		if err := applyChown(paths, value); err != nil {
+			m.notice = err.Error()
+			return nil
+		}
+		m.dialog = nil
+		if len(paths) == 1 {
+			m.notice = "Updated owner"
+		} else {
+			m.notice = fmt.Sprintf("Updated owner on %d items", len(paths))
+		}
+		return m.reloadSelect(m.selectedPath())
 	case "compress":
 		paths := dialog.paths
 		if len(paths) == 0 {
@@ -1027,6 +1074,12 @@ func (m *model) drawDialog(canvas *Canvas) {
 		placeholder = "file name"
 	case "compress":
 		placeholder = "archive.zip"
+	case "batchrename":
+		placeholder = "{name}{ext}"
+	case "chmod":
+		placeholder = "644"
+	case "chown":
+		placeholder = "user:group"
 	case "symlink":
 		placeholder = "link name"
 	}
