@@ -219,7 +219,11 @@ func (m *model) handlePreviewKey(msg tea.KeyPressMsg) tea.Cmd {
 func (m *model) openMenuForSelected() {
 	for _, hit := range m.cardHits {
 		if hit.index == m.selected {
-			m.openMenuAt(hit.x+2, hit.y+2)
+			y := hit.y + 2
+			if hit.height < 3 {
+				y = hit.y
+			}
+			m.openMenuAt(hit.x+2, y)
 			return
 		}
 	}

@@ -37,7 +37,7 @@ Demo artwork is original.*
 | <img src="docs/images/viewer-preview.png" width="100%" alt="Full-screen image viewer"> | <img src="docs/images/menu.png" width="100%" alt="File actions menu"> |
 | **Full-screen viewer** — `space` opens the selected image; arrows browse. *Ghostty preview (composited): UI from a real foot capture; image area filled at full resolution. [Unmodified capture](docs/images/viewer-halfblock.png).* | **File actions** — right-click or `m` to open, copy, cut, rename or trash. *Unmodified half-block capture.* |
 | <img src="docs/images/help.png" width="100%" alt="Keyboard help panel"> | <p align="center"><img src="docs/images/phone.png" width="58%" alt="fleek in a phone-sized terminal"></p> |
-| **Keyboard help** — every binding, scrollable in short windows. *Unmodified half-block capture.* | **Phone-sized terminal** — 40×23, icon rail and one-column grid. *Unmodified half-block capture.* |
+| **Keyboard help** — every binding, scrollable in short windows. *Unmodified half-block capture.* | **Phone-sized terminal** — 40×23. *Unmodified half-block capture.* |
 
 The grid and viewer previews are composited from real captures and are labeled
 as such. The menu, help and phone screenshots are unmodified.
@@ -49,6 +49,7 @@ as such. The menu, help and phone screenshots are unmodified.
 - Places sidebar with mounted filesystems and free space
 - Right-click a folder to add it to the sidebar, or remove it again
 - Responsive grid, selection borders, breadcrumbs and history
+- Compact list on phone-sized terminals
 - Recursive search across the current tree (`/`)
 - Copy, cut, paste, rename, trash and new-folder actions
 - Right-click context menu, plus keyboard equivalents
@@ -129,9 +130,10 @@ and restores the folder; `enter` opens the selected result.
 ### Small terminals
 
 Below 90 columns the sidebar collapses to a three-column icon rail; below 36
-columns it is hidden and the grid uses the full width. The help panel scrolls
-with `j`/`k`, arrow keys or the wheel. Search expands to the full path bar under
-50 columns, and menus and dialogs size themselves to the window.
+columns it is hidden and the grid uses the full width. Below 60 columns the grid
+becomes a compact list. The help panel scrolls with `j`/`k`, arrow keys or the
+wheel. Search expands to the full path bar under 50 columns, and menus and
+dialogs size themselves to the window.
 
 ## Configuration
 

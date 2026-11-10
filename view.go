@@ -42,6 +42,10 @@ func responsiveSidebarWidth(width, preferred int) int {
 	return preferred
 }
 
+func (m *model) compact() bool {
+	return m.width > 0 && m.width < 60
+}
+
 type crumb struct {
 	label string
 	path  string
@@ -110,29 +114,37 @@ func (m *model) drawTopbar(canvas *Canvas) {
 	} else {
 		x := 7
 		limit := m.width - 18
-		crumbs := m.crumbs()
-		for index, item := range crumbs {
-			label := truncateText(item.label, limit-x)
-			width := runewidth.StringWidth(label)
-			if width == 0 {
-				break
+		if m.compact() {
+			label := filepath.Base(m.cwd)
+			if m.cwd == userHome() {
+				label = "~"
 			}
-			color := colMuted
-			if index == len(crumbs)-1 {
-				color = colText
-			}
-			canvas.text(x, y, width, label, color, colTop)
-			m.crumbHits = append(m.crumbHits, crumbHit{x, x + width - 1, item.path})
-			x += width
-			if index < len(crumbs)-1 && !(index == 0 && item.path == "/") {
+			canvas.text(x, y, limit-x, truncateText(label, limit-x), colText, colTop)
+		} else {
+			crumbs := m.crumbs()
+			for index, item := range crumbs {
+				label := truncateText(item.label, limit-x)
+				width := runewidth.StringWidth(label)
+				if width == 0 {
+					break
+				}
+				color := colMuted
+				if index == len(crumbs)-1 {
+					color = colText
+				}
+				canvas.text(x, y, width, label, color, colTop)
+				m.crumbHits = append(m.crumbHits, crumbHit{x, x + width - 1, item.path})
+				x += width
+				if index < len(crumbs)-1 && !(index == 0 && item.path == "/") {
+					if x >= limit {
+						break
+					}
+					canvas.text(x, y, 1, "/", colDimmer, colTop)
+					x++
+				}
 				if x >= limit {
 					break
 				}
-				canvas.text(x, y, 1, "/", colDimmer, colTop)
-				x++
-			}
-			if x >= limit {
-				break
 			}
 		}
 	}
@@ -288,6 +300,10 @@ func (m *model) drawGallery(canvas *Canvas) {
 		m.drawEmpty(canvas)
 		return
 	}
+	if m.compact() {
+		m.drawCompactGallery(canvas)
+		return
+	}
 	columns := m.gridCols()
 	rows := m.visibleRows()
 	m.clampScroll()
@@ -310,6 +326,65 @@ func (m *model) drawGallery(canvas *Canvas) {
 		m.drawCard(canvas, x, y, cardWidth, index)
 	}
 	m.drawScrollbar(canvas)
+}
+
+func (m *model) drawCompactGallery(canvas *Canvas) {
+	m.clampScroll()
+	rows := m.visibleRows()
+	start := m.scroll
+	end := start + rows
+	if end > len(m.entries) {
+		end = len(m.entries)
+	}
+	x := sidebarW
+	if x < 0 {
+		x = 0
+	}
+	width := m.width - x - 1
+	if width < 4 {
+		width = m.width - x
+	}
+	for index := start; index < end; index++ {
+		y := topH + index - start
+		m.cardHits = append(m.cardHits, cardHit{x, y, width, 1, index})
+		m.drawCompactRow(canvas, x, y, width, index)
+	}
+	m.drawScrollbar(canvas)
+}
+
+func (m *model) drawCompactRow(canvas *Canvas, x, y, width, index int) {
+	entry := m.entries[index]
+	background := colBG
+	foreground := colText
+	if index == m.selected {
+		background = colSelected
+	}
+	canvas.fillRect(x, y, width, 1, background)
+	style := styleFor(entry)
+	canvas.text(x, y, 1, style.icon, style.color, background)
+
+	detail := ""
+	if !entry.IsDir {
+		detail = humanBytes(uint64(entry.Size))
+	}
+	detailWidth := 0
+	if detail != "" {
+		detailWidth = runewidth.StringWidth(detail)
+		if detailWidth+12 > width {
+			detail = ""
+			detailWidth = 0
+		}
+	}
+	nameWidth := width - 1
+	if detail != "" {
+		nameWidth -= detailWidth + 2
+		canvas.text(x+width-detailWidth, y, detailWidth, detail, colFaint, background)
+	}
+	name := m.entryLabel(entry)
+	if entry.IsLink {
+		name += " " + iconLink
+	}
+	canvas.text(x+2, y, nameWidth, name, foreground, background)
 }
 
 func (m *model) drawCard(canvas *Canvas, x, y, width, index int) {
@@ -389,6 +464,10 @@ func (m *model) drawScrollbar(canvas *Canvas) {
 	}
 	trackTop := topH + 1
 	trackHeight := m.height - topH - statusH - 2
+	if m.compact() {
+		trackTop = topH
+		trackHeight = m.height - topH - statusH
+	}
 	if trackHeight <= 0 {
 		return
 	}
@@ -428,6 +507,10 @@ func (m *model) drawEmpty(canvas *Canvas) {
 func (m *model) drawStatus(canvas *Canvas) {
 	y := m.height - statusH
 	canvas.fillRect(0, y, m.width, statusH, colStatus)
+	if m.notice != "" && m.compact() {
+		canvas.centerText(2, y, m.width-4, m.notice, colRed, colStatus)
+		return
+	}
 	shown := len(m.entries)
 	total := len(m.all)
 	label := fmt.Sprintf("%d items", shown)

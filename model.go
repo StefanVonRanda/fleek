@@ -777,6 +777,9 @@ func (m *model) moveSelection(delta int) {
 }
 
 func (m *model) gridCols() int {
+	if m.compact() {
+		return 1
+	}
 	columns, _, _ := m.cardMetrics()
 	return columns
 }
@@ -803,6 +806,9 @@ func (m *model) visibleRows() int {
 	body := m.height - topH - statusH
 	if body <= 0 {
 		return 1
+	}
+	if m.compact() {
+		return body
 	}
 	rows := body / (cardH + gapY)
 	if rows < 1 {
@@ -850,6 +856,9 @@ func (m *model) ensureVisible() {
 
 func (m *model) thumbCmds() tea.Cmd {
 	if !m.started || m.svc == nil || len(m.entries) == 0 {
+		return nil
+	}
+	if m.compact() {
 		return nil
 	}
 	start, end := m.visibleRange()
