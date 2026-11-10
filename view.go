@@ -150,15 +150,19 @@ func (m *model) drawTopbar(canvas *Canvas) {
 		if m.sidebarOpen {
 			color = colAccent
 		}
-		canvas.text(0, y, 1, iconSidebar, color, colTop)
-		m.topHits = append(m.topHits, topHit{0, 0, "sidebar"})
+		canvas.text(1, y, 1, iconSidebar, color, colTop)
+		m.topHits = append(m.topHits, topHit{1, 1, "sidebar"})
+	}
+	backX, forwardX := 2, 4
+	if m.mobile() {
+		backX, forwardX = 3, 5
 	}
 	if !compactSearch {
-		canvas.text(2, y, 1, iconBack, back, colTop)
-		canvas.text(4, y, 1, iconForward, forward, colTop)
+		canvas.text(backX, y, 1, iconBack, back, colTop)
+		canvas.text(forwardX, y, 1, iconForward, forward, colTop)
 		m.topHits = append(m.topHits,
-			topHit{2, 2, "back"},
-			topHit{4, 4, "forward"},
+			topHit{backX, backX, "back"},
+			topHit{forwardX, forwardX, "forward"},
 		)
 	}
 

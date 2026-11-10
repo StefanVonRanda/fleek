@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/colorprofile"
 )
 
-const version = "0.8.2"
+const version = "0.8.3"
 
 func main() {
 	flag.Usage = func() {
